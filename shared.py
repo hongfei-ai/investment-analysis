@@ -163,6 +163,18 @@ def call_claude(system_prompt: str, user_message: str, max_tokens: int = 8000) -
     return response.content[0].text
 
 
+def stream_claude(system_prompt: str, user_message: str, max_tokens: int = 8000):
+    """Stream Claude response, yielding text deltas as they arrive."""
+    with get_client().messages.stream(
+        model=MODEL,
+        max_tokens=max_tokens,
+        system=system_prompt,
+        messages=[{"role": "user", "content": user_message}],
+    ) as stream:
+        for text in stream.text_stream:
+            yield text
+
+
 # ─── Output Standards ─────────────────────────────────────────────────────────
 
 # ─── UI Helpers ──────────────────────────────────────────────────────────────

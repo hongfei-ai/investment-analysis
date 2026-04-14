@@ -20,7 +20,7 @@ except Exception:
 sys.path.insert(0, str(Path(__file__).parent))
 
 from shared import (
-    load_deal, save_deal, save_output, read_pdf, call_claude,
+    load_deal, save_deal, save_output, read_pdf, call_claude, stream_claude,
     list_deals, read_output, parse_deal_mode, DEALS_DIR, OUTPUTS_DIR,
 )
 import re as _re
@@ -231,27 +231,27 @@ def run_single_agent(
     max_tokens: int = 8000,
     post_save_fn=None,
 ):
-    """Run a single agent: load deal, call Claude, save results, rerun.
+    """Run a single agent with streaming: load deal, stream response, save, rerun.
 
     post_save_fn: optional callable(deal, output) for custom logic after saving
                   (e.g. mode parsing, status updates). Should return success label
                   override or None.
     """
     deal = load_deal(current_deal)
-    with st.spinner(spinner_label):
-        try:
-            output = call_claude(system_prompt, user_msg_fn(deal), max_tokens=max_tokens)
-            deal[deal_section][deal_field] = output
-            save_deal(deal)
-            save_output(current_deal, output_key, output)
-            if post_save_fn:
-                override = post_save_fn(deal, output)
-                if override:
-                    success_label = override
-            st.success(success_label)
-            st.rerun()
-        except Exception as e:
-            st.error(f"Failed: {e}")
+    try:
+        generator = stream_claude(system_prompt, user_msg_fn(deal), max_tokens=max_tokens)
+        output = st.write_stream(generator)
+        deal[deal_section][deal_field] = output
+        save_deal(deal)
+        save_output(current_deal, output_key, output)
+        if post_save_fn:
+            override = post_save_fn(deal, output)
+            if override:
+                success_label = override
+        st.success(success_label)
+        st.rerun()
+    except Exception as e:
+        st.error(f"Failed: {e}")
 
 
 # ═══════════════════════════════════════════════════════════════════════════════
@@ -299,16 +299,16 @@ with tab1:
                 save_deal(deal)
                 st.session_state.current_deal = deal_name
 
-                with st.spinner("Running Agent 1: Pre-Call Research..."):
-                    try:
-                        output = call_claude(AGENT1_SYSTEM, agent1_user(deal))
-                        deal["pre_call"]["research_output"] = output
-                        save_deal(deal)
-                        save_output(deal_name, "agent1_precall", output)
-                        st.success("Phase 1 complete!")
-                        st.rerun()
-                    except Exception as e:
-                        st.error(f"Error: {e}")
+                try:
+                    generator = stream_claude(AGENT1_SYSTEM, agent1_user(deal))
+                    output = st.write_stream(generator)
+                    deal["pre_call"]["research_output"] = output
+                    save_deal(deal)
+                    save_output(deal_name, "agent1_precall", output)
+                    st.success("Phase 1 complete!")
+                    st.rerun()
+                except Exception as e:
+                    st.error(f"Error: {e}")
 
     with right:
         st.subheader("Pre-Call Research Brief")
