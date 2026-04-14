@@ -4,10 +4,19 @@ Run: streamlit run app.py
 """
 
 import sys
+import os
 import streamlit as st
 import concurrent.futures
 from pathlib import Path
 from datetime import datetime
+
+# Inject Streamlit secrets into env vars BEFORE importing shared.py
+# This ensures the API key is available when shared.py loads
+try:
+    if "ANTHROPIC_API_KEY" in st.secrets:
+        os.environ["ANTHROPIC_API_KEY"] = st.secrets["ANTHROPIC_API_KEY"]
+except Exception:
+    pass
 
 sys.path.insert(0, str(Path(__file__).parent))
 

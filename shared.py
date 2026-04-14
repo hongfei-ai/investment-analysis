@@ -29,20 +29,16 @@ def _get_api_key():
     return None
 
 
-def _get_client():
-    key = _get_api_key()
-    if not key:
-        raise ValueError("No ANTHROPIC_API_KEY found. Set it in .env or Streamlit secrets.")
-    return anthropic.Anthropic(api_key=key)
-
-
 # Lazy client — initialized on first API call, not at import time
 _client = None
 
 def get_client():
     global _client
     if _client is None:
-        _client = _get_client()
+        key = _get_api_key()
+        if not key:
+            raise ValueError("No ANTHROPIC_API_KEY found. Set it in .env or Streamlit secrets.")
+        _client = anthropic.Anthropic(api_key=key)
     return _client
 MODEL = "claude-opus-4-6"
 
