@@ -523,6 +523,7 @@ with tab2:
                         system, user_msg, field, filename = parallel_tasks[key]
                         return key, field, filename, call_claude(system, user_msg)
 
+                    results = {}
                     done = 0
                     with concurrent.futures.ThreadPoolExecutor(max_workers=4) as executor:
                         futures = {executor.submit(_run, k): k for k in parallel_tasks}
@@ -530,12 +531,16 @@ with tab2:
                             key = futures[future]
                             try:
                                 _, field, filename, output = future.result()
-                                deal["diligence"][field] = output
-                                save_output(current, filename, output)
+                                results[key] = (field, filename, output)
                                 done += 1
                                 progress.progress(20 + done * 20, text=f"Agent {key[-1]} done ({done}/4)")
                             except Exception as e:
                                 st.warning(f"Agent {key} failed: {e}")
+
+                    # Write all results after threads complete — single save
+                    for key, (field, filename, output) in results.items():
+                        deal["diligence"][field] = output
+                        save_output(current, filename, output)
 
                     deal["status"] = "post-diligence"
                     save_deal(deal)
