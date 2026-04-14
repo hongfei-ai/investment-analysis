@@ -393,9 +393,6 @@ def agent7_user(deal: dict) -> str:
     return f"""
 Company: {deal['company_name']}
 
-Diligence Materials (decks, reports, contracts shared by the company):
-{deal['inputs'].get('diligence_materials', '[None provided]')}
-
 All diligence outputs:
 
 Diligence Management (Agent 2):
@@ -460,9 +457,6 @@ def agent8_user(deal: dict) -> str:
     diligence = deal["diligence"]
     return f"""
 Company: {deal['company_name']}
-
-Diligence Materials (decks, reports, contracts shared by the company):
-{deal['inputs'].get('diligence_materials', '[None provided]')}
 
 Pre-Mortem output (Agent 7):
 {ic_prep.get('pre_mortem', '[Not available]')}
