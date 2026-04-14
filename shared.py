@@ -14,16 +14,36 @@ load_dotenv(Path(__file__).parent / ".env", override=True)
 
 # Support both .env (local) and Streamlit secrets (cloud)
 def _get_api_key():
+    # 1. Try environment variable (.env or system)
     key = os.environ.get("ANTHROPIC_API_KEY")
     if key:
         return key
+    # 2. Try Streamlit secrets (cloud deployment)
     try:
         import streamlit as st
-        return st.secrets.get("ANTHROPIC_API_KEY")
+        key = st.secrets["ANTHROPIC_API_KEY"]
+        if key:
+            return key
     except Exception:
-        return None
+        pass
+    return None
 
-client = anthropic.Anthropic(api_key=_get_api_key())
+
+def _get_client():
+    key = _get_api_key()
+    if not key:
+        raise ValueError("No ANTHROPIC_API_KEY found. Set it in .env or Streamlit secrets.")
+    return anthropic.Anthropic(api_key=key)
+
+
+# Lazy client — initialized on first API call, not at import time
+_client = None
+
+def get_client():
+    global _client
+    if _client is None:
+        _client = _get_client()
+    return _client
 MODEL = "claude-opus-4-6"
 
 DEALS_DIR = Path("deals")
@@ -118,7 +138,7 @@ def read_pdf(path: str) -> str:
 
 def call_claude(system_prompt: str, user_message: str, max_tokens: int = 8000) -> str:
     """Call Claude and return the text response."""
-    response = client.messages.create(
+    response = get_client().messages.create(
         model=MODEL,
         max_tokens=max_tokens,
         system=system_prompt,
