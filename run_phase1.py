@@ -10,6 +10,7 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).parent))
 from shared import load_deal, save_deal, save_output, read_pdf, call_claude
 from agents.prompts import AGENT1_SYSTEM, agent1_user
+from agents.agent1_precall import AGENT1_TOOLS, AGENT1_MAX_TOKENS
 
 
 def run(args):
@@ -33,7 +34,8 @@ def run(args):
         deal["inputs"]["pitch_deck_path"] = args.deck
 
     print("  Running Agent 1: Pre-Call Research...")
-    output = call_claude(AGENT1_SYSTEM, agent1_user(deal))
+    output = call_claude(AGENT1_SYSTEM, agent1_user(deal),
+                         max_tokens=AGENT1_MAX_TOKENS, tools=AGENT1_TOOLS)
 
     deal["pre_call"]["research_output"] = output
     deal["status"] = "pre-call"

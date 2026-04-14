@@ -45,7 +45,7 @@ def get_client():
         key = _get_api_key()
         if not key:
             raise ValueError("No ANTHROPIC_API_KEY found. Set it in .env or Streamlit secrets.")
-        _client = anthropic.Anthropic(api_key=key, max_retries=3)
+        _client = anthropic.Anthropic(api_key=key, max_retries=3, timeout=180.0)
         return _client
 
 MODEL = "claude-opus-4-6"
@@ -152,25 +152,48 @@ def parse_deal_mode(output: str) -> str:
 
 # ─── API Caller ───────────────────────────────────────────────────────────────
 
-def call_claude(system_prompt: str, user_message: str, max_tokens: int = 8000) -> str:
-    """Call Claude and return the text response."""
-    response = get_client().messages.create(
-        model=MODEL,
-        max_tokens=max_tokens,
-        system=system_prompt,
-        messages=[{"role": "user", "content": user_message}]
-    )
-    return response.content[0].text
+def call_claude(system_prompt: str, user_message: str, max_tokens: int = 8000,
+                tools: list | None = None) -> str:
+    """Call Claude and return the text response.
 
-
-def stream_claude(system_prompt: str, user_message: str, max_tokens: int = 8000):
-    """Stream Claude response, yielding text deltas as they arrive."""
-    with get_client().messages.stream(
+    When tools are provided (e.g. web_search), the response may contain
+    multiple content blocks (tool results + text). We extract and concatenate
+    all text blocks.
+    """
+    kwargs = dict(
         model=MODEL,
         max_tokens=max_tokens,
         system=system_prompt,
         messages=[{"role": "user", "content": user_message}],
-    ) as stream:
+    )
+    if tools:
+        kwargs["tools"] = tools
+    response = get_client().messages.create(**kwargs)
+
+    # Extract text from all content blocks (server tools add non-text blocks)
+    final_text = ""
+    for block in response.content:
+        if hasattr(block, "text"):
+            final_text += block.text
+    return final_text
+
+
+def stream_claude(system_prompt: str, user_message: str, max_tokens: int = 8000,
+                  tools: list | None = None):
+    """Stream Claude response, yielding text deltas as they arrive.
+
+    When tools are provided (e.g. web_search), the stream handles server-side
+    tool execution transparently — text_stream yields only the text deltas.
+    """
+    kwargs = dict(
+        model=MODEL,
+        max_tokens=max_tokens,
+        system=system_prompt,
+        messages=[{"role": "user", "content": user_message}],
+    )
+    if tools:
+        kwargs["tools"] = tools
+    with get_client().messages.stream(**kwargs) as stream:
         for text in stream.text_stream:
             yield text
 

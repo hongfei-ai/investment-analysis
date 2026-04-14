@@ -119,6 +119,7 @@ from agents.prompts import (
     AGENT8_SYSTEM, agent8_user,
     AGENT9_SYSTEM, agent9_user,
 )
+from agents.agent1_precall import AGENT1_TOOLS, AGENT1_MAX_TOKENS
 
 # ─── Page Config ─────────────────────────────────────────────────────────────
 
@@ -300,7 +301,10 @@ with tab1:
                 st.session_state.current_deal = deal_name
 
                 try:
-                    generator = stream_claude(AGENT1_SYSTEM, agent1_user(deal))
+                    generator = stream_claude(
+                        AGENT1_SYSTEM, agent1_user(deal),
+                        max_tokens=AGENT1_MAX_TOKENS, tools=AGENT1_TOOLS,
+                    )
                     output = st.write_stream(generator)
                     deal["pre_call"]["research_output"] = output
                     save_deal(deal)
