@@ -21,7 +21,7 @@ sys.path.insert(0, str(Path(__file__).parent))
 
 from shared import (
     load_deal, save_deal, save_output, read_pdf, call_claude,
-    list_deals, read_output, DEALS_DIR, OUTPUTS_DIR,
+    list_deals, read_output, parse_deal_mode, DEALS_DIR, OUTPUTS_DIR,
 )
 import re as _re
 
@@ -219,6 +219,41 @@ def agent_button(label, caption, key, output_key, disabled=False):
     return st.button(btn_label, key=key, type="primary", use_container_width=True, disabled=disabled)
 
 
+def run_single_agent(
+    current_deal: str,
+    system_prompt: str,
+    user_msg_fn,
+    deal_section: str,
+    deal_field: str,
+    output_key: str,
+    spinner_label: str = "Running agent...",
+    success_label: str = "Done.",
+    max_tokens: int = 8000,
+    post_save_fn=None,
+):
+    """Run a single agent: load deal, call Claude, save results, rerun.
+
+    post_save_fn: optional callable(deal, output) for custom logic after saving
+                  (e.g. mode parsing, status updates). Should return success label
+                  override or None.
+    """
+    deal = load_deal(current_deal)
+    with st.spinner(spinner_label):
+        try:
+            output = call_claude(system_prompt, user_msg_fn(deal), max_tokens=max_tokens)
+            deal[deal_section][deal_field] = output
+            save_deal(deal)
+            save_output(current_deal, output_key, output)
+            if post_save_fn:
+                override = post_save_fn(deal, output)
+                if override:
+                    success_label = override
+            st.success(success_label)
+            st.rerun()
+        except Exception as e:
+            st.error(f"Failed: {e}")
+
+
 # ═══════════════════════════════════════════════════════════════════════════════
 # PHASE 1
 # ═══════════════════════════════════════════════════════════════════════════════
@@ -407,92 +442,55 @@ with tab2:
             if agent_button("Agent 2: Diligence Management",
                            "Diligence tracker + deal mode. Run first.",
                            "run_a2", "agent2_diligence_mgmt", disabled=not has_notes):
-                deal = load_deal(current)
-                with st.spinner("Running Agent 2..."):
-                    try:
-                        output = call_claude(AGENT2_SYSTEM, agent2_user(deal))
-                        mode = "A"
-                        lower = output.lower()
-                        if "mode b" in lower and "mode a" in lower:
-                            mode = "A+B"
-                        elif "mode b" in lower:
-                            mode = "B"
-                        deal["diligence"]["tracker"] = output
-                        deal["diligence"]["deal_mode"] = mode
-                        save_deal(deal)
-                        save_output(current, "agent2_diligence_mgmt", output)
-                        st.success(f"Done. Mode: {mode}")
-                        st.rerun()
-                    except Exception as e:
-                        st.error(f"Failed: {e}")
+                def _a2_post(deal, output):
+                    mode = parse_deal_mode(output)
+                    deal["diligence"]["deal_mode"] = mode
+                    save_deal(deal)
+                    return f"Done. Mode: {mode}"
+                run_single_agent(current, AGENT2_SYSTEM, agent2_user,
+                                 "diligence", "tracker", "agent2_diligence_mgmt",
+                                 spinner_label="Running Agent 2...", post_save_fn=_a2_post)
 
             st.divider()
             if agent_button("Agent 3: Founder Diligence",
                            "Company building, domain depth, leadership.",
                            "run_a3", "agent3_founder_diligence", disabled=not has_notes):
-                deal = load_deal(current)
-                with st.spinner("Running Agent 3..."):
-                    try:
-                        output = call_claude(AGENT3_SYSTEM, agent3_user(deal))
-                        deal["diligence"]["founder_diligence"] = output
-                        save_deal(deal)
-                        save_output(current, "agent3_founder_diligence", output)
-                        st.success("Done."); st.rerun()
-                    except Exception as e:
-                        st.error(f"Failed: {e}")
+                run_single_agent(current, AGENT3_SYSTEM, agent3_user,
+                                 "diligence", "founder_diligence", "agent3_founder_diligence",
+                                 spinner_label="Running Agent 3...")
 
             st.divider()
             if agent_button("Agent 4: Market Diligence",
                            "TAM/SAM/SOM, competitive landscape.",
                            "run_a4", "agent4_market_diligence", disabled=not has_notes):
-                deal = load_deal(current)
-                with st.spinner("Running Agent 4..."):
-                    try:
-                        output = call_claude(AGENT4_SYSTEM, agent4_user(deal))
-                        deal["diligence"]["market_diligence"] = output
-                        save_deal(deal)
-                        save_output(current, "agent4_market_diligence", output)
-                        st.success("Done."); st.rerun()
-                    except Exception as e:
-                        st.error(f"Failed: {e}")
+                run_single_agent(current, AGENT4_SYSTEM, agent4_user,
+                                 "diligence", "market_diligence", "agent4_market_diligence",
+                                 spinner_label="Running Agent 4...")
 
             st.divider()
             if agent_button("Agent 5: Reference Check",
                            "Reference intelligence, negative signals.",
                            "run_a5", "agent5_reference_check", disabled=not has_notes):
-                deal = load_deal(current)
-                with st.spinner("Running Agent 5..."):
-                    try:
-                        output = call_claude(AGENT5_SYSTEM, agent5_user(deal))
-                        deal["diligence"]["reference_check"] = output
-                        save_deal(deal)
-                        save_output(current, "agent5_reference_check", output)
-                        st.success("Done."); st.rerun()
-                    except Exception as e:
-                        st.error(f"Failed: {e}")
+                run_single_agent(current, AGENT5_SYSTEM, agent5_user,
+                                 "diligence", "reference_check", "agent5_reference_check",
+                                 spinner_label="Running Agent 5...")
 
             st.divider()
             if agent_button("Agent 6: Thesis Check",
                            "JanCap thesis alignment, bias detection.",
                            "run_a6", "agent6_thesis_check", disabled=not has_notes):
-                deal = load_deal(current)
-                with st.spinner("Running Agent 6..."):
-                    try:
-                        output = call_claude(AGENT6_SYSTEM, agent6_user(deal))
-                        deal["diligence"]["thesis_check"] = output
+                def _a6_post(deal, output):
+                    deal = load_deal(st.session_state.current_deal)
+                    all_done = all(
+                        isinstance(deal["diligence"].get(f), str) and deal["diligence"][f].strip()
+                        for f in ("tracker", "founder_diligence", "market_diligence", "reference_check", "thesis_check")
+                    )
+                    if all_done:
+                        deal["status"] = "post-diligence"
                         save_deal(deal)
-                        save_output(current, "agent6_thesis_check", output)
-                        deal = load_deal(current)
-                        all_done = all(
-                            isinstance(deal["diligence"].get(f), str) and deal["diligence"][f].strip()
-                            for f in ("tracker", "founder_diligence", "market_diligence", "reference_check", "thesis_check")
-                        )
-                        if all_done:
-                            deal["status"] = "post-diligence"
-                            save_deal(deal)
-                        st.success("Done."); st.rerun()
-                    except Exception as e:
-                        st.error(f"Failed: {e}")
+                run_single_agent(current, AGENT6_SYSTEM, agent6_user,
+                                 "diligence", "thesis_check", "agent6_thesis_check",
+                                 spinner_label="Running Agent 6...", post_save_fn=_a6_post)
 
             st.divider()
             if st.button("\u25b6 Run All Phase 2 Agents", use_container_width=True, disabled=not has_notes):
@@ -500,12 +498,7 @@ with tab2:
                 progress = st.progress(0, text="Agent 2: Diligence Management...")
                 try:
                     output2 = call_claude(AGENT2_SYSTEM, agent2_user(deal))
-                    mode = "A"
-                    lower = output2.lower()
-                    if "mode b" in lower and "mode a" in lower:
-                        mode = "A+B"
-                    elif "mode b" in lower:
-                        mode = "B"
+                    mode = parse_deal_mode(output2)
                     deal["diligence"]["tracker"] = output2
                     deal["diligence"]["deal_mode"] = mode
                     save_deal(deal)
@@ -594,47 +587,30 @@ with tab3:
             if agent_button("Agent 7: Pre-Mortem",
                            "Failure scenarios with probability and evidence.",
                            "run_a7", "agent7_premortem"):
-                deal = load_deal(current)
-                with st.spinner("Running Agent 7..."):
-                    try:
-                        output = call_claude(AGENT7_SYSTEM, agent7_user(deal))
-                        deal["ic_preparation"]["pre_mortem"] = output
-                        save_deal(deal)
-                        save_output(current, "agent7_premortem", output)
-                        st.success("Done."); st.rerun()
-                    except Exception as e:
-                        st.error(f"Failed: {e}")
+                run_single_agent(current, AGENT7_SYSTEM, agent7_user,
+                                 "ic_preparation", "pre_mortem", "agent7_premortem",
+                                 spinner_label="Running Agent 7...")
 
             st.divider()
             if agent_button("Agent 8: IC Simulation",
                            "4 IC personas evaluate the deal.",
                            "run_a8", "agent8_ic_simulation"):
-                deal = load_deal(current)
-                with st.spinner("Running Agent 8..."):
-                    try:
-                        output = call_claude(AGENT8_SYSTEM, agent8_user(deal))
-                        deal["ic_preparation"]["ic_simulation"] = output
-                        save_deal(deal)
-                        save_output(current, "agent8_ic_simulation", output)
-                        st.success("Done."); st.rerun()
-                    except Exception as e:
-                        st.error(f"Failed: {e}")
+                run_single_agent(current, AGENT8_SYSTEM, agent8_user,
+                                 "ic_preparation", "ic_simulation", "agent8_ic_simulation",
+                                 spinner_label="Running Agent 8...")
 
             st.divider()
             if agent_button("Agent 9: IC Memo",
                            "Final IC memo in January Capital format.",
                            "run_a9", "agent9_ic_memo"):
-                deal = load_deal(current)
-                with st.spinner("Running Agent 9..."):
-                    try:
-                        output = call_claude(AGENT9_SYSTEM, agent9_user(deal), max_tokens=12000)
-                        deal["ic_preparation"]["ic_memo"] = output
-                        deal["status"] = "complete"
-                        save_deal(deal)
-                        save_output(current, "agent9_ic_memo", output)
-                        st.success("IC Memo ready!"); st.rerun()
-                    except Exception as e:
-                        st.error(f"Failed: {e}")
+                def _a9_post(deal, output):
+                    deal["status"] = "complete"
+                    save_deal(deal)
+                run_single_agent(current, AGENT9_SYSTEM, agent9_user,
+                                 "ic_preparation", "ic_memo", "agent9_ic_memo",
+                                 spinner_label="Running Agent 9...",
+                                 success_label="IC Memo ready!",
+                                 max_tokens=12000, post_save_fn=_a9_post)
 
             st.divider()
             if st.button("\u25b6 Run All Phase 3 Agents", use_container_width=True):

@@ -138,6 +138,18 @@ def read_pdf(path: str) -> str:
         return f"[Could not read PDF: {e}]"
 
 
+# ─── Deal Mode Parser ────────────────────────────────────────────────────────
+
+def parse_deal_mode(output: str) -> str:
+    """Extract deal mode (A, B, or A+B) from Agent 2 output text."""
+    lower = output.lower()
+    if "mode b" in lower and "mode a" in lower:
+        return "A+B"
+    elif "mode b" in lower:
+        return "B"
+    return "A"
+
+
 # ─── API Caller ───────────────────────────────────────────────────────────────
 
 def call_claude(system_prompt: str, user_message: str, max_tokens: int = 8000) -> str:
