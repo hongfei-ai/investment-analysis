@@ -29,17 +29,12 @@ def _get_api_key():
     return None
 
 
-# Lazy client — initialized on first API call, not at import time
-_client = None
-
+# Lazy client — re-checks each time in case secrets load late
 def get_client():
-    global _client
-    if _client is None:
-        key = _get_api_key()
-        if not key:
-            raise ValueError("No ANTHROPIC_API_KEY found. Set it in .env or Streamlit secrets.")
-        _client = anthropic.Anthropic(api_key=key)
-    return _client
+    key = _get_api_key()
+    if not key:
+        raise ValueError("No ANTHROPIC_API_KEY found. Set it in .env or Streamlit secrets.")
+    return anthropic.Anthropic(api_key=key)
 MODEL = "claude-opus-4-6"
 
 DEALS_DIR = Path("deals")
