@@ -45,7 +45,7 @@ def get_client():
         key = _get_api_key()
         if not key:
             raise ValueError("No ANTHROPIC_API_KEY found. Set it in .env or Streamlit secrets.")
-        _client = anthropic.Anthropic(api_key=key)
+        _client = anthropic.Anthropic(api_key=key, max_retries=3)
         return _client
 
 MODEL = "claude-opus-4-6"
