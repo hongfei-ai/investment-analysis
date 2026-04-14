@@ -1,0 +1,21 @@
+# Secrets
+.env
+.streamlit/secrets.toml
+
+# Deal data (confidential)
+deals/
+outputs/
+inputs/
+
+# Python
+__pycache__/
+*.pyc
+.venv/
+venv/
+
+# IDE
+.vscode/
+.idea/
+
+# Claude Code
+.claude/
