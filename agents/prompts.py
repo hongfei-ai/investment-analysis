@@ -546,6 +546,12 @@ Company: {deal['company_name']}
 Founder: {deal['inputs']['founder_name']}
 Deal Mode: {mode}
 
+Primary source materials (decks, reports, contracts shared by the company):
+{deal['inputs'].get('diligence_materials', '[None provided]')}
+
+Call Notes / Transcript:
+{deal['call_notes'].get('raw_transcript_or_notes', '[Not available]')}
+
 All prior agent outputs (synthesize these — do not copy verbatim):
 
 [Agent 2 - Diligence Management]: {d.get('tracker', '')}
