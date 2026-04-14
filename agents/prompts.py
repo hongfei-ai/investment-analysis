@@ -123,6 +123,9 @@ Call Notes / Transcript:
 Deal Champion Annotations:
 {deal['call_notes'].get('human_annotations', '[None]')}
 
+Diligence Materials (decks, reports, contracts shared by the company):
+{deal['inputs'].get('diligence_materials', '[None provided]')}
+
 Produce the full Diligence Management output:
 
 ## DILIGENCE MANAGEMENT: {deal['company_name']}
@@ -168,6 +171,9 @@ Call Notes:
 
 Diligence Tracker (P1/P2 questions assigned to Founder Diligence):
 {tracker}
+
+Diligence Materials (decks, reports, contracts shared by the company):
+{deal['inputs'].get('diligence_materials', '[None provided]')}
 
 Produce a comprehensive Founder Diligence report:
 
@@ -222,6 +228,9 @@ Call Notes:
 
 Diligence Tracker (questions assigned to Market Diligence):
 {tracker}
+
+Diligence Materials (decks, reports, contracts shared by the company):
+{deal['inputs'].get('diligence_materials', '[None provided]')}
 
 Run Market Diligence in {mode} mode. Produce:
 
@@ -278,6 +287,9 @@ Pre-Call Research:
 Call Notes:
 {deal['call_notes']['raw_transcript_or_notes']}
 
+Diligence Materials (decks, reports, contracts shared by the company):
+{deal['inputs'].get('diligence_materials', '[None provided]')}
+
 Produce:
 
 ## REFERENCE CHECK INTELLIGENCE: {deal['inputs']['founder_name']} / {deal['company_name']}
@@ -327,6 +339,9 @@ Call Notes:
 
 Pre-Call Research:
 {deal['pre_call'].get('research_output', '[Not available]')}
+
+Diligence Materials (decks, reports, contracts shared by the company):
+{deal['inputs'].get('diligence_materials', '[None provided]')}
 
 Produce:
 
