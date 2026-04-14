@@ -29,12 +29,25 @@ def _get_api_key():
     return None
 
 
-# Lazy client — re-checks each time in case secrets load late
+import threading
+
+# Lazy, thread-safe singleton client — created once, reused across all calls
+_client = None
+_client_lock = threading.Lock()
+
 def get_client():
-    key = _get_api_key()
-    if not key:
-        raise ValueError("No ANTHROPIC_API_KEY found. Set it in .env or Streamlit secrets.")
-    return anthropic.Anthropic(api_key=key)
+    global _client
+    if _client is not None:
+        return _client
+    with _client_lock:
+        if _client is not None:          # double-checked locking
+            return _client
+        key = _get_api_key()
+        if not key:
+            raise ValueError("No ANTHROPIC_API_KEY found. Set it in .env or Streamlit secrets.")
+        _client = anthropic.Anthropic(api_key=key)
+        return _client
+
 MODEL = "claude-opus-4-6"
 
 DEALS_DIR = Path("deals")
