@@ -276,6 +276,7 @@ For reference call prep:
 """
 
 def agent5_user(deal: dict) -> str:
+    tracker = deal["diligence"].get("tracker", {})
     return f"""
 Company: {deal['company_name']}
 Founder: {deal['inputs']['founder_name']}
@@ -286,6 +287,9 @@ Pre-Call Research:
 
 Call Notes:
 {deal['call_notes']['raw_transcript_or_notes']}
+
+Diligence Tracker (P1/P2 questions assigned to Reference Check):
+{tracker}
 
 Diligence Materials (decks, reports, contracts shared by the company):
 {deal['inputs'].get('diligence_materials', '[None provided]')}
@@ -330,6 +334,7 @@ Be the skeptic in the room. Your job is not to kill deals, but to ensure the the
 """
 
 def agent6_user(deal: dict) -> str:
+    tracker = deal["diligence"].get("tracker", {})
     return f"""
 Company: {deal['company_name']}
 Founder: {deal['inputs']['founder_name']}
@@ -339,6 +344,9 @@ Call Notes:
 
 Pre-Call Research:
 {deal['pre_call'].get('research_output', '[Not available]')}
+
+Diligence Tracker (P1/P2 questions assigned to Thesis Check):
+{tracker}
 
 Diligence Materials (decks, reports, contracts shared by the company):
 {deal['inputs'].get('diligence_materials', '[None provided]')}
@@ -384,6 +392,9 @@ def agent7_user(deal: dict) -> str:
     diligence = deal["diligence"]
     return f"""
 Company: {deal['company_name']}
+
+Diligence Materials (decks, reports, contracts shared by the company):
+{deal['inputs'].get('diligence_materials', '[None provided]')}
 
 All diligence outputs:
 
@@ -449,6 +460,9 @@ def agent8_user(deal: dict) -> str:
     diligence = deal["diligence"]
     return f"""
 Company: {deal['company_name']}
+
+Diligence Materials (decks, reports, contracts shared by the company):
+{deal['inputs'].get('diligence_materials', '[None provided]')}
 
 Pre-Mortem output (Agent 7):
 {ic_prep.get('pre_mortem', '[Not available]')}
