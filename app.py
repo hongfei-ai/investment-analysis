@@ -12,17 +12,10 @@ from datetime import datetime
 
 # Inject Streamlit secrets into env vars BEFORE importing shared.py
 try:
-    secrets_keys = list(st.secrets.keys()) if hasattr(st, 'secrets') else []
     if "ANTHROPIC_API_KEY" in st.secrets:
         os.environ["ANTHROPIC_API_KEY"] = st.secrets["ANTHROPIC_API_KEY"]
-    else:
-        # Debug: show what secrets are available (remove after fixing)
-        st.error(f"ANTHROPIC_API_KEY not found in Streamlit secrets. Available keys: {secrets_keys}")
-except FileNotFoundError:
-    # No secrets file — running locally with .env
+except Exception:
     pass
-except Exception as e:
-    st.warning(f"Secrets loading note: {type(e).__name__}: {e}")
 
 sys.path.insert(0, str(Path(__file__).parent))
 
