@@ -374,13 +374,64 @@ def _section_html(title: str, body: str, *, open: bool = False,
     )
 
 
+def _rebuild_output(sections: list[tuple[str, str]]) -> str:
+    """Reassemble section list back into markdown text."""
+    parts = []
+    for title, body in sections:
+        if title == "Research Process":
+            # Preamble — no header prefix
+            parts.append(body)
+        else:
+            parts.append(f"### {title}\n\n{body}")
+    return "\n\n".join(parts)
+
+
+_SECTION_RERUN_SYSTEM = """You are a senior venture capital analyst at January Capital. You are re-running ONE specific section of a pre-call research brief. You have access to a web search tool — use it to find fresh, specific information for this section.
+
+You will be given:
+1. The deal context (founder, company, inputs)
+2. The existing full brief for context
+3. The specific section to regenerate
+
+Output ONLY the content for that section — no section header, no preamble, no other sections. Write the content as if it's the body under that section heading."""
+
+
+def _rerun_section_prompt(deal: dict, full_brief: str, section_title: str) -> str:
+    inputs = deal["inputs"]
+    deck_text = deal.get("_deck_text", "")
+    return f"""
+Founder: {inputs['founder_name']}
+LinkedIn: {inputs['founder_linkedin']}
+Company: {deal['company_name']}
+Website: {inputs.get('company_website', 'Unknown')}
+
+{"Pitch Deck Content:\\n" + deck_text if deck_text else "No pitch deck provided."}
+
+Here is the existing full research brief for context:
+---
+{full_brief}
+---
+
+Please regenerate ONLY this section: **{section_title}**
+
+Do deeper research on this specific topic. Use web search to find new or better information. Output only the body content for this section — no ### header, no other sections.
+"""
+
+
 def render_sectioned_brief(output_text: str) -> None:
-    """Render a completed brief as individual collapsible sections."""
+    """Render a completed brief with per-section re-run buttons."""
     sections = _split_by_h3(output_text)
-    html_parts = []
     for i, (title, body) in enumerate(sections):
-        html_parts.append(_section_html(title, body, open=(i == 0)))
-    st.markdown("\n".join(html_parts), unsafe_allow_html=True)
+        col_title, col_btn = st.columns([6, 1])
+        with col_btn:
+            if st.button("↻", key=f"rerun_sec_{i}", help=f"Re-run: {title}"):
+                st.session_state.p1_rerun_idx = i
+                st.rerun()
+        with col_title:
+            st.markdown(
+                _section_html(title, body, open=(i == 0)),
+                unsafe_allow_html=True,
+            )
 
 
 def stream_sectioned_brief(deal_name: str) -> None:
@@ -518,12 +569,69 @@ with tab1:
         if not current:
             st.info("Select an existing deal or create a new one.")
         elif st.session_state.get("active_stream") == "agent1_precall":
-            # Stream into per-section cards in real-time
+            # Stream full brief into per-section cards in real-time
             stream_sectioned_brief(current)
             st.session_state.active_stream = None
             st.rerun()
+        elif "p1_rerun_idx" in st.session_state:
+            # Re-run a single section
+            rerun_idx = st.session_state.pop("p1_rerun_idx")
+            output_text = read_output(current, "agent1_precall")
+            if output_text:
+                sections = _split_by_h3(output_text)
+                if 0 <= rerun_idx < len(sections):
+                    target_title = sections[rerun_idx][0]
+                    deal = load_deal(current)
+
+                    # Render all sections: static except the re-running one
+                    slots = []
+                    for i, (title, body) in enumerate(sections):
+                        slot = st.empty()
+                        slots.append(slot)
+                        if i == rerun_idx:
+                            slot.markdown(
+                                _section_html(title, "", open=True, streaming=True),
+                                unsafe_allow_html=True,
+                            )
+                        else:
+                            slot.markdown(
+                                _section_html(title, body, open=False),
+                                unsafe_allow_html=True,
+                            )
+
+                    # Stream the new section content
+                    try:
+                        accumulated = ""
+                        generator = stream_claude(
+                            _SECTION_RERUN_SYSTEM,
+                            _rerun_section_prompt(deal, output_text, target_title),
+                            max_tokens=4000,
+                            tools=AGENT1_TOOLS,
+                        )
+                        for chunk in generator:
+                            accumulated += chunk
+                            slots[rerun_idx].markdown(
+                                _section_html(target_title, accumulated, open=True, streaming=True),
+                                unsafe_allow_html=True,
+                            )
+
+                        # Finalize
+                        slots[rerun_idx].markdown(
+                            _section_html(target_title, accumulated, open=True),
+                            unsafe_allow_html=True,
+                        )
+
+                        # Splice back and save
+                        sections[rerun_idx] = (target_title, accumulated)
+                        new_output = _rebuild_output(sections)
+                        deal["pre_call"]["research_output"] = new_output
+                        save_deal(deal)
+                        save_output(current, "agent1_precall", new_output)
+                        st.rerun()
+                    except Exception as e:
+                        slots[rerun_idx].error(f"Re-run failed: {e}")
         else:
-            # Show completed output as sectioned cards
+            # Show completed output as sectioned cards with re-run buttons
             output_text = read_output(current, "agent1_precall")
             if output_text:
                 render_sectioned_brief(output_text)
