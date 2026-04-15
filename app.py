@@ -6,9 +6,11 @@ Run: streamlit run app.py
 import sys
 import os
 import re
+import html as _html
 import streamlit as st
 from pathlib import Path
 from datetime import datetime
+import markdown as _md
 
 # Inject Streamlit secrets into env vars BEFORE importing shared.py
 try:
@@ -322,10 +324,7 @@ def render_left_status() -> None:
 
 _H3_RE = re.compile(r"^###\s+(.+?)\s*$", re.MULTILINE)
 
-# Map raw section titles to cleaner display labels
-_SECTION_RENAMES = {
-    "overview": "Research Process",
-}
+MAX_BRIEF_SECTIONS = 15  # pre-allocate this many slots
 
 
 def _split_by_h3(text: str) -> list[tuple[str, str]]:
@@ -352,19 +351,98 @@ def _split_by_h3(text: str) -> list[tuple[str, str]]:
     return sections
 
 
+def _section_html(title: str, body: str, *, open: bool = False,
+                  streaming: bool = False) -> str:
+    """Render one section as a styled <details> card matching the theme."""
+    body_html = _md.markdown(
+        body or "", extensions=["tables", "fenced_code", "sane_lists"],
+        output_format="html5",
+    )
+    open_attr = " open" if open else ""
+    status = ""
+    if streaming:
+        status = (
+            ' <span style="color:var(--accent,#00d4aa);font-size:0.8em;'
+            'font-weight:400;margin-left:auto">streaming…</span>'
+        )
+    return (
+        f'<details class="section"{open_attr}>'
+        f'<summary>{_html.escape(title)}{status}</summary>'
+        f'<div class="section-body">{body_html}</div>'
+        f'</details>'
+    )
+
+
 def render_sectioned_brief(output_text: str) -> None:
-    """Render a long agent brief as individual st.expander sections."""
+    """Render a completed brief as individual collapsible sections."""
     sections = _split_by_h3(output_text)
+    html_parts = []
     for i, (title, body) in enumerate(sections):
-        # Clean up numbered prefixes for display but keep them for ordering
-        display_title = title
-        # Apply renames
-        for key, rename in _SECTION_RENAMES.items():
-            if title.lower().strip().startswith(key):
-                display_title = rename
+        html_parts.append(_section_html(title, body, open=(i == 0)))
+    st.markdown("\n".join(html_parts), unsafe_allow_html=True)
+
+
+def stream_sectioned_brief(deal_name: str) -> None:
+    """Stream Agent 1 output into per-section cards that fill up in real-time.
+
+    Completed sections render once and stay; the active section updates live.
+    """
+    cfg = AGENT_REGISTRY["agent1_precall"]
+    deal = load_deal(deal_name)
+
+    # Pre-allocate empty placeholder slots
+    slots = [st.empty() for _ in range(MAX_BRIEF_SECTIONS)]
+    finalized = [False] * MAX_BRIEF_SECTIONS  # track which slots are done
+
+    accumulated = ""
+    try:
+        generator = stream_claude(
+            cfg["system"], cfg["user_fn"](deal),
+            max_tokens=cfg["max_tokens"], tools=cfg.get("tools"),
+        )
+        for chunk in generator:
+            accumulated += chunk
+            sections = _split_by_h3(accumulated)
+
+            for i, (title, body) in enumerate(sections):
+                if i >= MAX_BRIEF_SECTIONS:
+                    break
+                is_last = (i == len(sections) - 1)
+
+                if is_last:
+                    # Active section — update on every chunk
+                    slots[i].markdown(
+                        _section_html(title, body, open=True, streaming=True),
+                        unsafe_allow_html=True,
+                    )
+                elif not finalized[i]:
+                    # Just completed — render once, mark done
+                    slots[i].markdown(
+                        _section_html(title, body, open=(i == 0)),
+                        unsafe_allow_html=True,
+                    )
+                    finalized[i] = True
+
+        # Streaming done — finalize the last section
+        sections = _split_by_h3(accumulated)
+        for i, (title, body) in enumerate(sections):
+            if i >= MAX_BRIEF_SECTIONS:
                 break
-        with st.expander(display_title, expanded=(i == 0)):
-            st.markdown(body, unsafe_allow_html=True)
+            if not finalized[i]:
+                slots[i].markdown(
+                    _section_html(title, body, open=(i == 0)),
+                    unsafe_allow_html=True,
+                )
+
+        # Save
+        deal[cfg["section"]][cfg["field"]] = accumulated
+        save_deal(deal)
+        save_output(deal_name, "agent1_precall", accumulated)
+        if cfg.get("post_save"):
+            cfg["post_save"](deal_name, accumulated)
+
+    except Exception as e:
+        slots[0].error(f"Agent 1 failed: {e}")
 
 
 # ═══════════════════════════════════════════════════════════════════════════════
@@ -422,25 +500,18 @@ with tab1:
         current = st.session_state.current_deal
         if not current:
             st.info("Select an existing deal or create a new one.")
+        elif st.session_state.get("active_stream") == "agent1_precall":
+            # Stream into per-section cards in real-time
+            stream_sectioned_brief(current)
+            st.session_state.active_stream = None
+            st.rerun()
         else:
-            # While streaming, show a single streaming card
-            if st.session_state.get("active_stream") == "agent1_precall":
-                handles = render_cards_with_placeholders(
-                    current,
-                    [("agent1_precall", "Agent 1: Pre-Call Research")],
-                    read_output_fn=read_output,
-                    initially_open_first=True,
-                )
-                stream_into_card(handles, "agent1_precall", current)
-                st.session_state.active_stream = None
-                st.rerun()
+            # Show completed output as sectioned cards
+            output_text = read_output(current, "agent1_precall")
+            if output_text:
+                render_sectioned_brief(output_text)
             else:
-                # Show completed output as sectioned expanders
-                output_text = read_output(current, "agent1_precall")
-                if output_text:
-                    render_sectioned_brief(output_text)
-                else:
-                    st.info("No output yet. Fill in the inputs and run Phase 1.")
+                st.info("No output yet. Fill in the inputs and run Phase 1.")
 
 
 # ═══════════════════════════════════════════════════════════════════════════════
