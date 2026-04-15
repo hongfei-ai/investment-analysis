@@ -542,12 +542,14 @@ with tab2:
             # ── Call Notes ───────────────────────────────────────────────────
             st.subheader("Call Notes")
 
+            notes_method = st.radio(
+                "Input method",
+                ["Paste notes", "Upload file"],
+                horizontal=True,
+                key="notes_input_method",
+            )
+
             with st.form("phase2_notes_form"):
-                notes_method = st.radio(
-                    "Input method",
-                    ["Paste notes", "Upload file"],
-                    horizontal=True,
-                )
                 call_notes = ""
                 notes_file = None
                 if notes_method == "Paste notes":
