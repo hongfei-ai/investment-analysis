@@ -138,6 +138,41 @@ def read_pdf(path: str) -> str:
         return f"[Could not read PDF: {e}]"
 
 
+# ─── DOCX Reader ────────────────────────────────────────────────────────────
+
+def read_docx(path: str) -> str:
+    """Extract text from a DOCX file."""
+    try:
+        from docx import Document
+        doc = Document(path)
+        return "\n\n".join(p.text for p in doc.paragraphs if p.text.strip())
+    except Exception as e:
+        return f"[Could not read DOCX: {e}]"
+
+
+def extract_file_text(file_bytes: bytes, filename: str) -> str:
+    """Extract text from an uploaded file based on its extension."""
+    import tempfile
+    name_lower = filename.lower()
+
+    if name_lower.endswith((".txt", ".md", ".csv")):
+        return file_bytes.decode("utf-8", errors="replace")
+
+    if name_lower.endswith(".pdf"):
+        with tempfile.NamedTemporaryFile(suffix=".pdf", delete=False) as tmp:
+            tmp.write(file_bytes)
+            tmp.flush()
+            return read_pdf(tmp.name)
+
+    if name_lower.endswith((".docx", ".doc")):
+        with tempfile.NamedTemporaryFile(suffix=".docx", delete=False) as tmp:
+            tmp.write(file_bytes)
+            tmp.flush()
+            return read_docx(tmp.name)
+
+    return f"[Unsupported file type: {filename}]"
+
+
 # ─── Deal Mode Parser ────────────────────────────────────────────────────────
 
 def parse_deal_mode(output: str) -> str:

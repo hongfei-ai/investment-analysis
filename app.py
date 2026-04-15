@@ -23,7 +23,8 @@ sys.path.insert(0, str(Path(__file__).parent))
 
 from shared import (
     load_deal, save_deal, save_output, read_pdf, stream_claude,
-    list_deals, read_output, parse_deal_mode, DEALS_DIR, OUTPUTS_DIR,
+    list_deals, read_output, parse_deal_mode, extract_file_text,
+    DEALS_DIR, OUTPUTS_DIR,
 )
 
 from ui import inject_theme, render_stepper
@@ -560,7 +561,10 @@ with tab2:
                         value=deal.get("call_notes", {}).get("raw_transcript_or_notes", ""),
                     )
                 else:
-                    notes_file = st.file_uploader("Upload Notes File", type=["txt", "md"])
+                    notes_file = st.file_uploader(
+                        "Upload Notes File",
+                        type=["txt", "md", "pdf", "doc", "docx"],
+                    )
 
                 annotations = st.text_area(
                     "Deal Champion Annotations (optional)",
@@ -573,7 +577,9 @@ with tab2:
             if save_notes:
                 notes_content = call_notes
                 if notes_file:
-                    notes_content = notes_file.getvalue().decode("utf-8")
+                    notes_content = extract_file_text(
+                        notes_file.getvalue(), notes_file.name
+                    )
                 if notes_content.strip():
                     deal["call_notes"]["raw_transcript_or_notes"] = notes_content
                     if annotations:
@@ -612,15 +618,12 @@ with tab2:
                     fpath.write_bytes(f.getvalue())
                     saved_files.append(f.name)
 
-                # Extract text from PDFs and store in deal
+                # Extract text from uploaded files and store in deal
                 materials_text = []
                 for f in uploaded_files:
-                    if f.name.lower().endswith(".pdf"):
-                        fpath = materials_dir / f.name
-                        text = read_pdf(str(fpath))
+                    text = extract_file_text(f.getvalue(), f.name)
+                    if not text.startswith("[Unsupported"):
                         materials_text.append(f"--- {f.name} ---\n{text}")
-                    elif f.name.lower().endswith((".txt", ".md", ".csv")):
-                        materials_text.append(f"--- {f.name} ---\n{f.getvalue().decode('utf-8', errors='replace')}")
 
                 if materials_text:
                     deal = load_deal(current)
