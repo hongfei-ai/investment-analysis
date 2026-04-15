@@ -23,90 +23,8 @@ from shared import (
     load_deal, save_deal, save_output, read_pdf, call_claude, stream_claude,
     list_deals, read_output, parse_deal_mode, DEALS_DIR, OUTPUTS_DIR,
 )
-import re as _re
 
-
-# ─── Confidence Tag Tooltips ─────────────────────────────────────────────────
-
-TOOLTIP_CSS = """
-<style>
-.conf-tag {
-    position: relative;
-    display: inline-block;
-    cursor: help;
-    border-bottom: 1.5px dotted;
-    font-size: 0.7em;
-    font-weight: 600;
-    letter-spacing: 0.02em;
-    padding: 1px 5px;
-    border-radius: 3px;
-    vertical-align: middle;
-    margin-left: 2px;
-}
-.conf-tag .conf-tip {
-    visibility: hidden;
-    opacity: 0;
-    position: absolute;
-    bottom: 125%;
-    left: 50%;
-    transform: translateX(-50%);
-    background: #1a1a2e;
-    color: #f0f0f0;
-    padding: 6px 10px;
-    border-radius: 6px;
-    font-size: 11px;
-    font-weight: 400;
-    letter-spacing: 0;
-    white-space: nowrap;
-    z-index: 999;
-    box-shadow: 0 2px 8px rgba(0,0,0,0.25);
-    transition: opacity 0.15s;
-    pointer-events: none;
-}
-.conf-tag .conf-tip::after {
-    content: "";
-    position: absolute;
-    top: 100%;
-    left: 50%;
-    margin-left: -5px;
-    border-width: 5px;
-    border-style: solid;
-    border-color: #1a1a2e transparent transparent transparent;
-}
-.conf-tag:hover .conf-tip {
-    visibility: visible;
-    opacity: 1;
-}
-.conf-high { color: #0e8a16; border-color: #0e8a16; background: #e6f9e8; }
-.conf-med  { color: #b08800; border-color: #b08800; background: #fff8e1; }
-.conf-low  { color: #cf222e; border-color: #cf222e; background: #ffeef0; }
-.conf-gap  { color: #6e40c9; border-color: #6e40c9; background: #f0e8ff; }
-.conf-src  { color: #0969da; border-color: #0969da; background: #e8f0fe; }
-</style>
-"""
-
-_CONF_PATTERNS = [
-    (_re.compile(r'\[HIGH CONFIDENCE\]', _re.IGNORECASE),
-     '<span class="conf-tag conf-high">HC<span class="conf-tip">HIGH CONFIDENCE</span></span>'),
-    (_re.compile(r'\[MEDIUM CONFIDENCE\]', _re.IGNORECASE),
-     '<span class="conf-tag conf-med">MC<span class="conf-tip">MEDIUM CONFIDENCE</span></span>'),
-    (_re.compile(r'\[LOW CONFIDENCE\s*/?\s*INFERRED\]', _re.IGNORECASE),
-     '<span class="conf-tag conf-low">LC<span class="conf-tip">LOW CONFIDENCE / INFERRED</span></span>'),
-    (_re.compile(r'\[LOW CONFIDENCE\]', _re.IGNORECASE),
-     '<span class="conf-tag conf-low">LC<span class="conf-tip">LOW CONFIDENCE</span></span>'),
-    (_re.compile(r'\[INSUFFICIENT DATA[^]]*\]', _re.IGNORECASE),
-     '<span class="conf-tag conf-gap">GAP<span class="conf-tip">INSUFFICIENT DATA \u2014 requires manual input</span></span>'),
-    (_re.compile(r'\[(?:Source|Cited?|Ref):\s*([^\]]+)\]', _re.IGNORECASE),
-     lambda m: f'<span class="conf-tag conf-src">src<span class="conf-tip">Source: {m.group(1).strip()}</span></span>'),
-]
-
-
-def render_md(text: str) -> None:
-    """Render markdown with confidence tags converted to hover tooltips."""
-    for pattern, replacement in _CONF_PATTERNS:
-        text = pattern.sub(replacement, text)
-    st.markdown(TOOLTIP_CSS + text, unsafe_allow_html=True)
-
+from ui import inject_theme, render_stepper, render_output_panel
 
 from agents.prompts import (
     AGENT1_SYSTEM, agent1_user,
@@ -129,6 +47,8 @@ st.set_page_config(
     layout="wide",
     initial_sidebar_state="collapsed",
 )
+
+inject_theme()
 
 # ─── Authentication ──────────────────────────────────────────────────────────
 
@@ -161,12 +81,16 @@ if not check_password():
 if "current_deal" not in st.session_state:
     st.session_state.current_deal = None
 
-# ─── Top Bar: Deal Selector + Status ────────────────────────────────────────
+# ─── Top Bar: Deal Selector ─────────────────────────────────────────────────
 
 top_col1, top_col2, top_col3 = st.columns([2, 6, 2])
 
 with top_col1:
-    st.markdown("#### \U0001f4ca Investment Analysis")
+    st.markdown(
+        f'<div style="font-size:17px;font-weight:700;padding-top:6px;">'
+        f'<span style="color:#00d4aa">&#9632;</span> Investment Analysis</div>',
+        unsafe_allow_html=True,
+    )
 
 with top_col2:
     existing_deals = list_deals()
@@ -185,18 +109,21 @@ with top_col2:
 with top_col3:
     if st.session_state.current_deal:
         deal_info = load_deal(st.session_state.current_deal)
-        status = deal_info.get("status", "pre-call")
-        status_labels = {
-            "pre-call": "\U0001f535 Pre-Call",
-            "diligence": "\U0001f7e1 Diligence",
-            "post-diligence": "\U0001f7e0 Post-Diligence",
-            "complete": "\U0001f7e2 Complete",
-        }
-        st.markdown(f"**{status_labels.get(status, status)}**")
-        if deal_info["inputs"].get("founder_name"):
-            st.caption(deal_info["inputs"]["founder_name"])
+        founder = deal_info["inputs"].get("founder_name", "")
+        if founder:
+            st.markdown(
+                f'<div style="text-align:right;padding-top:8px;color:#8b949e;font-size:13px">'
+                f'{founder}</div>',
+                unsafe_allow_html=True,
+            )
 
-st.divider()
+# ─── Phase Stepper ──────────────────────────────────────────────────────────
+
+if st.session_state.current_deal:
+    deal_info = load_deal(st.session_state.current_deal)
+    render_stepper(deal_info.get("status", "pre-call"))
+else:
+    render_stepper(None)
 
 # ─── Phase Tabs ──────────────────────────────────────────────────────────────
 
@@ -318,11 +245,13 @@ with tab1:
         st.subheader("Pre-Call Research Brief")
         current = st.session_state.current_deal
         if current:
-            output_text = read_output(current, "agent1_precall")
-            if output_text:
-                render_md(output_text)
-            else:
-                st.info("No output yet. Fill in the inputs and run Phase 1.")
+            render_output_panel(
+                current,
+                [("agent1_precall", "Agent 1: Pre-Call Research")],
+                read_output_fn=read_output,
+                initially_open_first=True,
+                empty_message="No output yet. Fill in the inputs and run Phase 1.",
+            )
         else:
             st.info("Select an existing deal or create a new one.")
 
@@ -550,23 +479,18 @@ with tab2:
         # ── Right Panel: Outputs ─────────────────────────────────────────────
         with right:
             st.subheader("Diligence Outputs")
-            agent_outputs = [
-                ("agent2_diligence_mgmt", "Agent 2: Diligence Management"),
-                ("agent3_founder_diligence", "Agent 3: Founder Diligence"),
-                ("agent4_market_diligence", "Agent 4: Market Diligence"),
-                ("agent5_reference_check", "Agent 5: Reference Check"),
-                ("agent6_thesis_check", "Agent 6: Thesis Check"),
-            ]
-            has_any = any(read_output(current, key) for key, _ in agent_outputs)
-
-            if has_any:
-                for key, label in agent_outputs:
-                    text = read_output(current, key)
-                    if text:
-                        with st.expander(label, expanded=False):
-                            render_md(text)
-            else:
-                st.info("No outputs yet. Save notes and run agents from the left panel.")
+            render_output_panel(
+                current,
+                [
+                    ("agent2_diligence_mgmt", "Agent 2: Diligence Management"),
+                    ("agent3_founder_diligence", "Agent 3: Founder Diligence"),
+                    ("agent4_market_diligence", "Agent 4: Market Diligence"),
+                    ("agent5_reference_check", "Agent 5: Reference Check"),
+                    ("agent6_thesis_check", "Agent 6: Thesis Check"),
+                ],
+                read_output_fn=read_output,
+                empty_message="No outputs yet. Save notes and run agents from the left panel.",
+            )
 
 
 # ═══════════════════════════════════════════════════════════════════════════════
@@ -647,18 +571,15 @@ with tab3:
         # ── Right Panel: Outputs ─────────────────────────────────────────────
         with right:
             st.subheader("IC Preparation Outputs")
-            agent_outputs = [
-                ("agent9_ic_memo", "Agent 9: IC Memo", True),
-                ("agent8_ic_simulation", "Agent 8: IC Simulation", False),
-                ("agent7_premortem", "Agent 7: Pre-Mortem", False),
-            ]
-            has_any = any(read_output(current, key) for key, _, _ in agent_outputs)
-
-            if has_any:
-                for key, label, expanded in agent_outputs:
-                    text = read_output(current, key)
-                    if text:
-                        with st.expander(label, expanded=expanded):
-                            render_md(text)
-            else:
-                st.info("No outputs yet. Run agents from the left panel.")
+            render_output_panel(
+                current,
+                [
+                    ("agent9_ic_memo", "Agent 9: IC Memo"),
+                    ("agent8_ic_simulation", "Agent 8: IC Simulation"),
+                    ("agent7_premortem", "Agent 7: Pre-Mortem"),
+                ],
+                read_output_fn=read_output,
+                initially_open_first=True,
+                skip_confidence_keys=["agent9_ic_memo"],
+                empty_message="No outputs yet. Run agents from the left panel.",
+            )
