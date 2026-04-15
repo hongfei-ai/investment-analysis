@@ -5,6 +5,7 @@ Run: streamlit run app.py
 
 import sys
 import os
+import re
 import streamlit as st
 from pathlib import Path
 from datetime import datetime
@@ -316,6 +317,57 @@ def render_left_status() -> None:
 
 
 # ═══════════════════════════════════════════════════════════════════════════════
+# HELPER: Section-based brief renderer (splits by ### headers)
+# ═══════════════════════════════════════════════════════════════════════════════
+
+_H3_RE = re.compile(r"^###\s+(.+?)\s*$", re.MULTILINE)
+
+# Map raw section titles to cleaner display labels
+_SECTION_RENAMES = {
+    "overview": "Research Process",
+}
+
+
+def _split_by_h3(text: str) -> list[tuple[str, str]]:
+    """Split markdown text by ### headers. Returns [(title, body), ...]."""
+    matches = list(_H3_RE.finditer(text))
+    sections: list[tuple[str, str]] = []
+
+    if not matches:
+        return [("Output", text)]
+
+    # Preamble before the first ### header (H2 title + any intro text)
+    preamble = text[: matches[0].start()].strip()
+    # Strip any leading H2 line from the preamble
+    preamble_body = re.sub(r"^##\s+.+?\n*", "", preamble).strip()
+    if preamble_body:
+        sections.append(("Research Process", preamble_body))
+
+    for i, m in enumerate(matches):
+        end = matches[i + 1].start() if i + 1 < len(matches) else len(text)
+        title = m.group(1).strip()
+        body = text[m.end() : end].strip()
+        sections.append((title, body))
+
+    return sections
+
+
+def render_sectioned_brief(output_text: str) -> None:
+    """Render a long agent brief as individual st.expander sections."""
+    sections = _split_by_h3(output_text)
+    for i, (title, body) in enumerate(sections):
+        # Clean up numbered prefixes for display but keep them for ordering
+        display_title = title
+        # Apply renames
+        for key, rename in _SECTION_RENAMES.items():
+            if title.lower().strip().startswith(key):
+                display_title = rename
+                break
+        with st.expander(display_title, expanded=(i == 0)):
+            st.markdown(body, unsafe_allow_html=True)
+
+
+# ═══════════════════════════════════════════════════════════════════════════════
 # PHASE 1
 # ═══════════════════════════════════════════════════════════════════════════════
 
@@ -371,15 +423,24 @@ with tab1:
         if not current:
             st.info("Select an existing deal or create a new one.")
         else:
-            handles = render_cards_with_placeholders(
-                current,
-                [("agent1_precall", "Agent 1: Pre-Call Research")],
-                read_output_fn=read_output,
-                initially_open_first=True,
-            )
+            # While streaming, show a single streaming card
             if st.session_state.get("active_stream") == "agent1_precall":
+                handles = render_cards_with_placeholders(
+                    current,
+                    [("agent1_precall", "Agent 1: Pre-Call Research")],
+                    read_output_fn=read_output,
+                    initially_open_first=True,
+                )
                 stream_into_card(handles, "agent1_precall", current)
                 st.session_state.active_stream = None
+                st.rerun()
+            else:
+                # Show completed output as sectioned expanders
+                output_text = read_output(current, "agent1_precall")
+                if output_text:
+                    render_sectioned_brief(output_text)
+                else:
+                    st.info("No output yet. Fill in the inputs and run Phase 1.")
 
 
 # ═══════════════════════════════════════════════════════════════════════════════
