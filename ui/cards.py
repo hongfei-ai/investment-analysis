@@ -163,3 +163,82 @@ def render_output_panel(
         return
 
     st.markdown("".join(parts), unsafe_allow_html=True)
+
+
+# ─── Placeholder-based renderer (for in-place streaming) ──────────────────
+
+def filled_card_html(
+    label: str,
+    accent: str,
+    output_text: str,
+    *,
+    skip_confidence: bool = False,
+    initially_open: bool = False,
+) -> str:
+    """Public wrapper: return the fully styled card HTML for a completed agent output."""
+    return _filled_card(label, accent, output_text, skip_confidence, initially_open)
+
+
+def empty_card_html(label: str, accent: str) -> str:
+    """Public wrapper: return the empty-state card HTML for an agent that has not run."""
+    return _empty_card(label, accent)
+
+
+def streaming_card_html(label: str, accent: str, partial_text: str) -> str:
+    """Card chrome with partial markdown body — used while an agent is actively streaming."""
+    body = md.markdown(
+        partial_text or "",
+        extensions=["tables", "fenced_code", "sane_lists"],
+        output_format="html5",
+    )
+    return (
+        f'<div class="agent-card" style="border-left-color:{accent}">'
+        '<div class="agent-card-head">'
+        f'<span class="agent-card-title">{html.escape(label)}</span>'
+        '<span class="empty-pill">streaming…</span>'
+        "</div>"
+        f'<div class="section-body">{body}</div>'
+        "</div>"
+    )
+
+
+def render_cards_with_placeholders(
+    deal_name: str,
+    agents: Iterable[tuple[str, str]],
+    *,
+    read_output_fn,
+    initially_open_first: bool = False,
+    skip_confidence_keys: Iterable[str] = (),
+) -> dict[str, dict]:
+    """Render one st.empty() per agent and return a handle-dict for in-place streaming.
+
+    Returns: {agent_key: {"placeholder": st.empty, "label": str, "accent": str, "skip_conf": bool}}
+    """
+    skip_set = set(skip_confidence_keys)
+    handles: dict[str, dict] = {}
+    first_filled_rendered = False
+
+    for key, label in agents:
+        accent = AGENT_ACCENTS.get(key, COLORS["accent"])
+        text = read_output_fn(deal_name, key)
+        placeholder = st.empty()
+        skip_conf = key in skip_set
+
+        if text:
+            open_this = initially_open_first and not first_filled_rendered
+            first_filled_rendered = True
+            placeholder.markdown(
+                _filled_card(label, accent, text, skip_conf, open_this),
+                unsafe_allow_html=True,
+            )
+        else:
+            placeholder.markdown(_empty_card(label, accent), unsafe_allow_html=True)
+
+        handles[key] = {
+            "placeholder": placeholder,
+            "label": label,
+            "accent": accent,
+            "skip_conf": skip_conf,
+        }
+
+    return handles

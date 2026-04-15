@@ -6,7 +6,6 @@ Run: streamlit run app.py
 import sys
 import os
 import streamlit as st
-import concurrent.futures
 from pathlib import Path
 from datetime import datetime
 
@@ -20,11 +19,16 @@ except Exception:
 sys.path.insert(0, str(Path(__file__).parent))
 
 from shared import (
-    load_deal, save_deal, save_output, read_pdf, call_claude, stream_claude,
+    load_deal, save_deal, save_output, read_pdf, stream_claude,
     list_deals, read_output, parse_deal_mode, DEALS_DIR, OUTPUTS_DIR,
 )
 
-from ui import inject_theme, render_stepper, render_output_panel
+from ui import inject_theme, render_stepper
+from ui.cards import (
+    render_cards_with_placeholders,
+    streaming_card_html,
+    filled_card_html,
+)
 
 from agents.prompts import (
     AGENT1_SYSTEM, agent1_user,
@@ -80,6 +84,12 @@ if not check_password():
 
 if "current_deal" not in st.session_state:
     st.session_state.current_deal = None
+if "active_stream" not in st.session_state:
+    st.session_state.active_stream = None
+if "batch_queue" not in st.session_state:
+    st.session_state.batch_queue = []
+if "batch_total" not in st.session_state:
+    st.session_state.batch_total = 0
 
 # ─── Top Bar: Deal Selector ─────────────────────────────────────────────────
 
@@ -135,6 +145,147 @@ tab1, tab2, tab3 = st.tabs([
 
 
 # ═══════════════════════════════════════════════════════════════════════════════
+# Agent Registry & Streaming Helpers
+# ═══════════════════════════════════════════════════════════════════════════════
+
+def _a2_post(deal_name: str, output: str) -> None:
+    deal = load_deal(deal_name)
+    deal["diligence"]["deal_mode"] = parse_deal_mode(output)
+    save_deal(deal)
+
+
+def _a6_post(deal_name: str, output: str) -> None:
+    deal = load_deal(deal_name)
+    all_done = all(
+        isinstance(deal["diligence"].get(f), str) and deal["diligence"][f].strip()
+        for f in ("tracker", "founder_diligence", "market_diligence", "reference_check", "thesis_check")
+    )
+    if all_done:
+        deal["status"] = "post-diligence"
+        save_deal(deal)
+
+
+def _a9_post(deal_name: str, output: str) -> None:
+    deal = load_deal(deal_name)
+    deal["status"] = "complete"
+    save_deal(deal)
+
+
+def _a1_post(deal_name: str, output: str) -> None:
+    # Phase 1 doesn't change status here — the brief is the deliverable.
+    pass
+
+
+AGENT_REGISTRY: dict[str, dict] = {
+    "agent1_precall": {
+        "system": AGENT1_SYSTEM, "user_fn": agent1_user,
+        "section": "pre_call", "field": "research_output",
+        "label": "Agent 1: Pre-Call Research",
+        "max_tokens": AGENT1_MAX_TOKENS, "tools": AGENT1_TOOLS,
+        "post_save": _a1_post,
+    },
+    "agent2_diligence_mgmt": {
+        "system": AGENT2_SYSTEM, "user_fn": agent2_user,
+        "section": "diligence", "field": "tracker",
+        "label": "Agent 2: Diligence Management",
+        "max_tokens": 8000, "tools": None,
+        "post_save": _a2_post,
+    },
+    "agent3_founder_diligence": {
+        "system": AGENT3_SYSTEM, "user_fn": agent3_user,
+        "section": "diligence", "field": "founder_diligence",
+        "label": "Agent 3: Founder Diligence",
+        "max_tokens": 8000, "tools": None,
+        "post_save": None,
+    },
+    "agent4_market_diligence": {
+        "system": AGENT4_SYSTEM, "user_fn": agent4_user,
+        "section": "diligence", "field": "market_diligence",
+        "label": "Agent 4: Market Diligence",
+        "max_tokens": 8000, "tools": None,
+        "post_save": None,
+    },
+    "agent5_reference_check": {
+        "system": AGENT5_SYSTEM, "user_fn": agent5_user,
+        "section": "diligence", "field": "reference_check",
+        "label": "Agent 5: Reference Check",
+        "max_tokens": 8000, "tools": None,
+        "post_save": None,
+    },
+    "agent6_thesis_check": {
+        "system": AGENT6_SYSTEM, "user_fn": agent6_user,
+        "section": "diligence", "field": "thesis_check",
+        "label": "Agent 6: Thesis Check",
+        "max_tokens": 8000, "tools": None,
+        "post_save": _a6_post,
+    },
+    "agent7_premortem": {
+        "system": AGENT7_SYSTEM, "user_fn": agent7_user,
+        "section": "ic_preparation", "field": "pre_mortem",
+        "label": "Agent 7: Pre-Mortem",
+        "max_tokens": 8000, "tools": None,
+        "post_save": None,
+    },
+    "agent8_ic_simulation": {
+        "system": AGENT8_SYSTEM, "user_fn": agent8_user,
+        "section": "ic_preparation", "field": "ic_simulation",
+        "label": "Agent 8: IC Simulation",
+        "max_tokens": 8000, "tools": None,
+        "post_save": None,
+    },
+    "agent9_ic_memo": {
+        "system": AGENT9_SYSTEM, "user_fn": agent9_user,
+        "section": "ic_preparation", "field": "ic_memo",
+        "label": "Agent 9: IC Memo",
+        "max_tokens": 12000, "tools": None,
+        "post_save": _a9_post,
+    },
+}
+
+
+def stream_into_card(handles: dict, key: str, deal_name: str) -> str | None:
+    """Stream agent output into a right-panel card placeholder, then swap to styled card.
+
+    On success: saves output, runs post_save, replaces placeholder with styled HTML, returns text.
+    On failure: replaces placeholder with an in-card error message, returns None.
+    Caller is responsible for clearing st.session_state flags.
+    """
+    handle = handles[key]
+    placeholder = handle["placeholder"]
+    label = handle["label"]
+    accent = handle["accent"]
+    skip_conf = handle["skip_conf"]
+    cfg = AGENT_REGISTRY[key]
+
+    deal = load_deal(deal_name)
+    accumulated = ""
+    try:
+        generator = stream_claude(
+            cfg["system"], cfg["user_fn"](deal),
+            max_tokens=cfg["max_tokens"], tools=cfg.get("tools"),
+        )
+        for chunk in generator:
+            accumulated += chunk
+            placeholder.markdown(
+                streaming_card_html(label, accent, accumulated),
+                unsafe_allow_html=True,
+            )
+        deal[cfg["section"]][cfg["field"]] = accumulated
+        save_deal(deal)
+        save_output(deal_name, key, accumulated)
+        if cfg.get("post_save"):
+            cfg["post_save"](deal_name, accumulated)
+        placeholder.markdown(
+            filled_card_html(label, accent, accumulated, skip_confidence=skip_conf),
+            unsafe_allow_html=True,
+        )
+        return accumulated
+    except Exception as e:
+        placeholder.error(f"{label} failed: {e}")
+        return None
+
+
+# ═══════════════════════════════════════════════════════════════════════════════
 # HELPER: Agent button row (used in Phase 2 & 3 left panels)
 # ═══════════════════════════════════════════════════════════════════════════════
 
@@ -147,39 +298,21 @@ def agent_button(label, caption, key, output_key, disabled=False):
     return st.button(btn_label, key=key, type="primary", use_container_width=True, disabled=disabled)
 
 
-def run_single_agent(
-    current_deal: str,
-    system_prompt: str,
-    user_msg_fn,
-    deal_section: str,
-    deal_field: str,
-    output_key: str,
-    spinner_label: str = "Running agent...",
-    success_label: str = "Done.",
-    max_tokens: int = 8000,
-    post_save_fn=None,
-):
-    """Run a single agent with streaming: load deal, stream response, save, rerun.
-
-    post_save_fn: optional callable(deal, output) for custom logic after saving
-                  (e.g. mode parsing, status updates). Should return success label
-                  override or None.
-    """
-    deal = load_deal(current_deal)
-    try:
-        generator = stream_claude(system_prompt, user_msg_fn(deal), max_tokens=max_tokens)
-        output = st.write_stream(generator)
-        deal[deal_section][deal_field] = output
-        save_deal(deal)
-        save_output(current_deal, output_key, output)
-        if post_save_fn:
-            override = post_save_fn(deal, output)
-            if override:
-                success_label = override
-        st.success(success_label)
-        st.rerun()
-    except Exception as e:
-        st.error(f"Failed: {e}")
+def render_left_status() -> None:
+    """If a stream is active in this run, show a spinner-style status message in the left panel."""
+    active = st.session_state.get("active_stream")
+    queue = st.session_state.get("batch_queue") or []
+    total = st.session_state.get("batch_total", 0)
+    if active and active in AGENT_REGISTRY:
+        st.info(f"\u23f3 Running {AGENT_REGISTRY[active]['label']}\u2026")
+    elif queue:
+        running = queue[0]
+        if running in AGENT_REGISTRY:
+            done = total - len(queue)
+            st.info(
+                f"\u23f3 Running {AGENT_REGISTRY[running]['label']}\u2026 "
+                f"({done + 1}/{total})"
+            )
 
 
 # ═══════════════════════════════════════════════════════════════════════════════
@@ -226,39 +359,42 @@ with tab1:
                     deal["inputs"]["pitch_deck_path"] = str(deck_path)
                 save_deal(deal)
                 st.session_state.current_deal = deal_name
+                st.session_state.active_stream = "agent1_precall"
 
-                try:
-                    generator = stream_claude(
-                        AGENT1_SYSTEM, agent1_user(deal),
-                        max_tokens=AGENT1_MAX_TOKENS, tools=AGENT1_TOOLS,
-                    )
-                    output = st.write_stream(generator)
-                    deal["pre_call"]["research_output"] = output
-                    save_deal(deal)
-                    save_output(deal_name, "agent1_precall", output)
-                    st.success("Phase 1 complete!")
-                    st.rerun()
-                except Exception as e:
-                    st.error(f"Error: {e}")
+        # Status indicator while Agent 1 streams in the right panel
+        if st.session_state.current_deal:
+            render_left_status()
 
     with right:
         st.subheader("Pre-Call Research Brief")
         current = st.session_state.current_deal
-        if current:
-            render_output_panel(
+        if not current:
+            st.info("Select an existing deal or create a new one.")
+        else:
+            handles = render_cards_with_placeholders(
                 current,
                 [("agent1_precall", "Agent 1: Pre-Call Research")],
                 read_output_fn=read_output,
                 initially_open_first=True,
-                empty_message="No output yet. Fill in the inputs and run Phase 1.",
             )
-        else:
-            st.info("Select an existing deal or create a new one.")
+            if st.session_state.get("active_stream") == "agent1_precall":
+                stream_into_card(handles, "agent1_precall", current)
+                st.session_state.active_stream = None
 
 
 # ═══════════════════════════════════════════════════════════════════════════════
 # PHASE 2
 # ═══════════════════════════════════════════════════════════════════════════════
+
+PHASE2_AGENTS = [
+    ("agent2_diligence_mgmt", "Agent 2: Diligence Management"),
+    ("agent3_founder_diligence", "Agent 3: Founder Diligence"),
+    ("agent4_market_diligence", "Agent 4: Market Diligence"),
+    ("agent5_reference_check", "Agent 5: Reference Check"),
+    ("agent6_thesis_check", "Agent 6: Thesis Check"),
+]
+PHASE2_KEYS = {k for k, _ in PHASE2_AGENTS}
+
 
 with tab2:
     current = st.session_state.current_deal
@@ -375,127 +511,99 @@ with tab2:
             if agent_button("Agent 2: Diligence Management",
                            "Diligence tracker + deal mode. Run first.",
                            "run_a2", "agent2_diligence_mgmt", disabled=not has_notes):
-                def _a2_post(deal, output):
-                    mode = parse_deal_mode(output)
-                    deal["diligence"]["deal_mode"] = mode
-                    save_deal(deal)
-                    return f"Done. Mode: {mode}"
-                run_single_agent(current, AGENT2_SYSTEM, agent2_user,
-                                 "diligence", "tracker", "agent2_diligence_mgmt",
-                                 spinner_label="Running Agent 2...", post_save_fn=_a2_post)
+                st.session_state.active_stream = "agent2_diligence_mgmt"
 
             st.divider()
             if agent_button("Agent 3: Founder Diligence",
                            "Company building, domain depth, leadership.",
                            "run_a3", "agent3_founder_diligence", disabled=not has_notes):
-                run_single_agent(current, AGENT3_SYSTEM, agent3_user,
-                                 "diligence", "founder_diligence", "agent3_founder_diligence",
-                                 spinner_label="Running Agent 3...")
+                st.session_state.active_stream = "agent3_founder_diligence"
 
             st.divider()
             if agent_button("Agent 4: Market Diligence",
                            "TAM/SAM/SOM, competitive landscape.",
                            "run_a4", "agent4_market_diligence", disabled=not has_notes):
-                run_single_agent(current, AGENT4_SYSTEM, agent4_user,
-                                 "diligence", "market_diligence", "agent4_market_diligence",
-                                 spinner_label="Running Agent 4...")
+                st.session_state.active_stream = "agent4_market_diligence"
 
             st.divider()
             if agent_button("Agent 5: Reference Check",
                            "Reference intelligence, negative signals.",
                            "run_a5", "agent5_reference_check", disabled=not has_notes):
-                run_single_agent(current, AGENT5_SYSTEM, agent5_user,
-                                 "diligence", "reference_check", "agent5_reference_check",
-                                 spinner_label="Running Agent 5...")
+                st.session_state.active_stream = "agent5_reference_check"
 
             st.divider()
             if agent_button("Agent 6: Thesis Check",
                            "JanCap thesis alignment, bias detection.",
                            "run_a6", "agent6_thesis_check", disabled=not has_notes):
-                def _a6_post(deal, output):
-                    deal = load_deal(st.session_state.current_deal)
-                    all_done = all(
-                        isinstance(deal["diligence"].get(f), str) and deal["diligence"][f].strip()
-                        for f in ("tracker", "founder_diligence", "market_diligence", "reference_check", "thesis_check")
-                    )
-                    if all_done:
-                        deal["status"] = "post-diligence"
-                        save_deal(deal)
-                run_single_agent(current, AGENT6_SYSTEM, agent6_user,
-                                 "diligence", "thesis_check", "agent6_thesis_check",
-                                 spinner_label="Running Agent 6...", post_save_fn=_a6_post)
+                st.session_state.active_stream = "agent6_thesis_check"
 
             st.divider()
             if st.button("\u25b6 Run All Phase 2 Agents", use_container_width=True, disabled=not has_notes):
-                deal = load_deal(current)
-                progress = st.progress(0, text="Agent 2: Diligence Management...")
-                try:
-                    output2 = call_claude(AGENT2_SYSTEM, agent2_user(deal))
-                    mode = parse_deal_mode(output2)
-                    deal["diligence"]["tracker"] = output2
-                    deal["diligence"]["deal_mode"] = mode
-                    save_deal(deal)
-                    save_output(current, "agent2_diligence_mgmt", output2)
-                    progress.progress(20, text=f"Agent 2 done (Mode: {mode}). Running 3-6...")
+                queue = [k for k, _ in PHASE2_AGENTS]
+                st.session_state.batch_queue = queue
+                st.session_state.batch_total = len(queue)
 
-                    parallel_tasks = {
-                        "agent3": (AGENT3_SYSTEM, agent3_user(deal), "founder_diligence", "agent3_founder_diligence"),
-                        "agent4": (AGENT4_SYSTEM, agent4_user(deal), "market_diligence", "agent4_market_diligence"),
-                        "agent5": (AGENT5_SYSTEM, agent5_user(deal), "reference_check", "agent5_reference_check"),
-                        "agent6": (AGENT6_SYSTEM, agent6_user(deal), "thesis_check", "agent6_thesis_check"),
-                    }
-
-                    def _run(key):
-                        system, user_msg, field, filename = parallel_tasks[key]
-                        return key, field, filename, call_claude(system, user_msg)
-
-                    results = {}
-                    done = 0
-                    with concurrent.futures.ThreadPoolExecutor(max_workers=4) as executor:
-                        futures = {executor.submit(_run, k): k for k in parallel_tasks}
-                        for future in concurrent.futures.as_completed(futures):
-                            key = futures[future]
-                            try:
-                                _, field, filename, output = future.result()
-                                results[key] = (field, filename, output)
-                                done += 1
-                                progress.progress(20 + done * 20, text=f"Agent {key[-1]} done ({done}/4)")
-                            except Exception as e:
-                                st.warning(f"Agent {key} failed: {e}")
-
-                    # Write all results after threads complete — single save
-                    for key, (field, filename, output) in results.items():
-                        deal["diligence"][field] = output
-                        save_output(current, filename, output)
-
-                    deal["status"] = "post-diligence"
-                    save_deal(deal)
-                    progress.progress(100, text="All Phase 2 agents complete!")
-                    st.success("Phase 2 complete!")
-                    st.rerun()
-                except Exception as e:
-                    st.error(f"Failed: {e}")
+            render_left_status()
 
         # ── Right Panel: Outputs ─────────────────────────────────────────────
         with right:
             st.subheader("Diligence Outputs")
-            render_output_panel(
+
+            # Progress bar above cards (only during batch runs)
+            progress_slot = st.empty()
+            queue = st.session_state.get("batch_queue") or []
+            phase2_batch = bool(queue) and queue[0] in PHASE2_KEYS
+            if phase2_batch:
+                total = st.session_state.batch_total or len(queue)
+                done = total - len(queue)
+                progress_slot.progress(
+                    done / total if total else 0.0,
+                    text=f"Running agents… {done}/{total}",
+                )
+
+            handles = render_cards_with_placeholders(
                 current,
-                [
-                    ("agent2_diligence_mgmt", "Agent 2: Diligence Management"),
-                    ("agent3_founder_diligence", "Agent 3: Founder Diligence"),
-                    ("agent4_market_diligence", "Agent 4: Market Diligence"),
-                    ("agent5_reference_check", "Agent 5: Reference Check"),
-                    ("agent6_thesis_check", "Agent 6: Thesis Check"),
-                ],
+                PHASE2_AGENTS,
                 read_output_fn=read_output,
-                empty_message="No outputs yet. Save notes and run agents from the left panel.",
             )
+
+            # Single-agent stream (a button was just clicked)
+            active = st.session_state.get("active_stream")
+            if active in PHASE2_KEYS and active in handles:
+                stream_into_card(handles, active, current)
+                st.session_state.active_stream = None
+
+            # Batch stream (Run All was just clicked)
+            if phase2_batch:
+                while st.session_state.batch_queue and st.session_state.batch_queue[0] in PHASE2_KEYS:
+                    key = st.session_state.batch_queue[0]
+                    if key in handles:
+                        stream_into_card(handles, key, current)
+                    st.session_state.batch_queue.pop(0)
+                    total = st.session_state.batch_total
+                    done = total - len(st.session_state.batch_queue)
+                    if st.session_state.batch_queue:
+                        progress_slot.progress(
+                            done / total if total else 0.0,
+                            text=f"Running agents… {done}/{total}",
+                        )
+                    else:
+                        progress_slot.progress(1.0, text="Phase 2 complete")
+                st.session_state.batch_total = 0
 
 
 # ═══════════════════════════════════════════════════════════════════════════════
 # PHASE 3
 # ═══════════════════════════════════════════════════════════════════════════════
+
+PHASE3_DISPLAY = [
+    ("agent9_ic_memo", "Agent 9: IC Memo"),
+    ("agent8_ic_simulation", "Agent 8: IC Simulation"),
+    ("agent7_premortem", "Agent 7: Pre-Mortem"),
+]
+PHASE3_RUN_ORDER = ["agent7_premortem", "agent8_ic_simulation", "agent9_ic_memo"]
+PHASE3_KEYS = {k for k, _ in PHASE3_DISPLAY}
+
 
 with tab3:
     current = st.session_state.current_deal
@@ -515,71 +623,68 @@ with tab3:
             if agent_button("Agent 7: Pre-Mortem",
                            "Failure scenarios with probability and evidence.",
                            "run_a7", "agent7_premortem"):
-                run_single_agent(current, AGENT7_SYSTEM, agent7_user,
-                                 "ic_preparation", "pre_mortem", "agent7_premortem",
-                                 spinner_label="Running Agent 7...")
+                st.session_state.active_stream = "agent7_premortem"
 
             st.divider()
             if agent_button("Agent 8: IC Simulation",
                            "4 IC personas evaluate the deal.",
                            "run_a8", "agent8_ic_simulation"):
-                run_single_agent(current, AGENT8_SYSTEM, agent8_user,
-                                 "ic_preparation", "ic_simulation", "agent8_ic_simulation",
-                                 spinner_label="Running Agent 8...")
+                st.session_state.active_stream = "agent8_ic_simulation"
 
             st.divider()
             if agent_button("Agent 9: IC Memo",
                            "Final IC memo in January Capital format.",
                            "run_a9", "agent9_ic_memo"):
-                def _a9_post(deal, output):
-                    deal["status"] = "complete"
-                    save_deal(deal)
-                run_single_agent(current, AGENT9_SYSTEM, agent9_user,
-                                 "ic_preparation", "ic_memo", "agent9_ic_memo",
-                                 spinner_label="Running Agent 9...",
-                                 success_label="IC Memo ready!",
-                                 max_tokens=12000, post_save_fn=_a9_post)
+                st.session_state.active_stream = "agent9_ic_memo"
 
             st.divider()
             if st.button("\u25b6 Run All Phase 3 Agents", use_container_width=True):
-                deal = load_deal(current)
-                progress = st.progress(0, text="Agent 7: Pre-Mortem...")
-                try:
-                    a7_out = call_claude(AGENT7_SYSTEM, agent7_user(deal))
-                    deal["ic_preparation"]["pre_mortem"] = a7_out
-                    save_deal(deal)
-                    save_output(current, "agent7_premortem", a7_out)
-                    progress.progress(33, text="Agent 7 done. Running Agent 8...")
+                st.session_state.batch_queue = list(PHASE3_RUN_ORDER)
+                st.session_state.batch_total = len(PHASE3_RUN_ORDER)
 
-                    a8_out = call_claude(AGENT8_SYSTEM, agent8_user(deal))
-                    deal["ic_preparation"]["ic_simulation"] = a8_out
-                    save_deal(deal)
-                    save_output(current, "agent8_ic_simulation", a8_out)
-                    progress.progress(66, text="Agent 8 done. Running Agent 9...")
-
-                    a9_out = call_claude(AGENT9_SYSTEM, agent9_user(deal), max_tokens=12000)
-                    deal["ic_preparation"]["ic_memo"] = a9_out
-                    deal["status"] = "complete"
-                    save_deal(deal)
-                    save_output(current, "agent9_ic_memo", a9_out)
-                    progress.progress(100, text="Phase 3 complete!")
-                    st.success("IC Memo ready!")
-                    st.rerun()
-                except Exception as e:
-                    st.error(f"Failed: {e}")
+            render_left_status()
 
         # ── Right Panel: Outputs ─────────────────────────────────────────────
         with right:
             st.subheader("IC Preparation Outputs")
-            render_output_panel(
+
+            progress_slot = st.empty()
+            queue = st.session_state.get("batch_queue") or []
+            phase3_batch = bool(queue) and queue[0] in PHASE3_KEYS
+            if phase3_batch:
+                total = st.session_state.batch_total or len(queue)
+                done = total - len(queue)
+                progress_slot.progress(
+                    done / total if total else 0.0,
+                    text=f"Running agents… {done}/{total}",
+                )
+
+            handles = render_cards_with_placeholders(
                 current,
-                [
-                    ("agent9_ic_memo", "Agent 9: IC Memo"),
-                    ("agent8_ic_simulation", "Agent 8: IC Simulation"),
-                    ("agent7_premortem", "Agent 7: Pre-Mortem"),
-                ],
+                PHASE3_DISPLAY,
                 read_output_fn=read_output,
                 initially_open_first=True,
                 skip_confidence_keys=["agent9_ic_memo"],
-                empty_message="No outputs yet. Run agents from the left panel.",
             )
+
+            active = st.session_state.get("active_stream")
+            if active in PHASE3_KEYS and active in handles:
+                stream_into_card(handles, active, current)
+                st.session_state.active_stream = None
+
+            if phase3_batch:
+                while st.session_state.batch_queue and st.session_state.batch_queue[0] in PHASE3_KEYS:
+                    key = st.session_state.batch_queue[0]
+                    if key in handles:
+                        stream_into_card(handles, key, current)
+                    st.session_state.batch_queue.pop(0)
+                    total = st.session_state.batch_total
+                    done = total - len(st.session_state.batch_queue)
+                    if st.session_state.batch_queue:
+                        progress_slot.progress(
+                            done / total if total else 0.0,
+                            text=f"Running agents… {done}/{total}",
+                        )
+                    else:
+                        progress_slot.progress(1.0, text="Phase 3 complete")
+                st.session_state.batch_total = 0
