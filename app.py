@@ -464,7 +464,11 @@ with tab1:
             intro_source = st.text_input("Intro Source", placeholder="Who introduced the deal?")
             intro_context = st.text_area("Intro Context", placeholder="How did this deal come about?", height=68)
             initial_notes = st.text_area("Initial Notes", placeholder="Any preliminary notes...", height=68)
-            deck_file = st.file_uploader("Pitch Deck (PDF)", type=["pdf"])
+            input_files = st.file_uploader(
+                "Supporting Documents (pitch deck, one-pager, etc.)",
+                type=["pdf", "doc", "docx", "txt", "md"],
+                accept_multiple_files=True,
+            )
 
             submitted_p1 = st.form_submit_button(
                 "\u25b6 Run Phase 1",
@@ -483,11 +487,23 @@ with tab1:
                 deal["inputs"]["intro_source"] = intro_source or ""
                 deal["inputs"]["intro_context"] = intro_context or ""
                 deal["inputs"]["initial_notes"] = initial_notes or ""
-                if deck_file:
-                    deck_path = Path("inputs") / deck_file.name
-                    deck_path.parent.mkdir(exist_ok=True)
-                    deck_path.write_bytes(deck_file.getvalue())
-                    deal["inputs"]["pitch_deck_path"] = str(deck_path)
+
+                # Extract text from all uploaded files
+                if input_files:
+                    input_dir = Path("inputs") / deal_name
+                    input_dir.mkdir(parents=True, exist_ok=True)
+                    deck_parts = []
+                    file_names = []
+                    for f in input_files:
+                        fpath = input_dir / f.name
+                        fpath.write_bytes(f.getvalue())
+                        file_names.append(f.name)
+                        text = extract_file_text(f.getvalue(), f.name)
+                        if not text.startswith("[Unsupported"):
+                            deck_parts.append(f"--- {f.name} ---\n{text}")
+                    deal["_deck_text"] = "\n\n".join(deck_parts)
+                    deal["inputs"]["pitch_deck_path"] = ", ".join(file_names)
+
                 save_deal(deal)
                 st.session_state.current_deal = deal_name
                 st.session_state.active_stream = "agent1_precall"
@@ -552,7 +568,7 @@ with tab2:
 
             with st.form("phase2_notes_form"):
                 call_notes = ""
-                notes_file = None
+                notes_files = None
                 if notes_method == "Paste notes":
                     call_notes = st.text_area(
                         "Call Notes",
@@ -561,9 +577,10 @@ with tab2:
                         value=deal.get("call_notes", {}).get("raw_transcript_or_notes", ""),
                     )
                 else:
-                    notes_file = st.file_uploader(
-                        "Upload Notes File",
+                    notes_files = st.file_uploader(
+                        "Upload Notes Files",
                         type=["txt", "md", "pdf", "doc", "docx"],
+                        accept_multiple_files=True,
                     )
 
                 annotations = st.text_area(
@@ -576,10 +593,13 @@ with tab2:
 
             if save_notes:
                 notes_content = call_notes
-                if notes_file:
-                    notes_content = extract_file_text(
-                        notes_file.getvalue(), notes_file.name
-                    )
+                if notes_files:
+                    parts = []
+                    for nf in notes_files:
+                        text = extract_file_text(nf.getvalue(), nf.name)
+                        if not text.startswith("[Unsupported"):
+                            parts.append(f"--- {nf.name} ---\n{text}")
+                    notes_content = "\n\n".join(parts)
                 if notes_content.strip():
                     deal["call_notes"]["raw_transcript_or_notes"] = notes_content
                     if annotations:
