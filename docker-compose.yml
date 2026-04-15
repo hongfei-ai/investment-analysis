@@ -1,0 +1,12 @@
+services:
+  app:
+    build: .
+    ports:
+      - "8501:8501"
+    env_file:
+      - .env
+    volumes:
+      - ./deals:/app/deals
+      - ./outputs:/app/outputs
+      - ./inputs:/app/inputs
+    restart: unless-stopped
