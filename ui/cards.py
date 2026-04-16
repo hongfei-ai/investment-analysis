@@ -202,6 +202,83 @@ def streaming_card_html(label: str, accent: str, partial_text: str) -> str:
     )
 
 
+# ─── H3-split regex (shared with app.py's _split_by_h3) ─────────────────
+_H3_SPLIT_RE = re.compile(r"^###\s+(.+?)\s*$", re.MULTILINE)
+
+
+def _split_sections(text: str) -> list[tuple[str, str]]:
+    """Split markdown by ### headers into (title, body) pairs."""
+    matches = list(_H3_SPLIT_RE.finditer(text))
+    if not matches:
+        return [("Output", text)]
+
+    sections: list[tuple[str, str]] = []
+    # Preamble before the first ### (e.g. H2 title line)
+    preamble = re.sub(r"^##\s+.+?\n*", "", text[: matches[0].start()]).strip()
+    if preamble:
+        sections.append(("Overview", preamble))
+
+    for i, m in enumerate(matches):
+        end = matches[i + 1].start() if i + 1 < len(matches) else len(text)
+        sections.append((m.group(1).strip(), text[m.end() : end].strip()))
+
+    return sections
+
+
+def streaming_sectioned_card_html(label: str, accent: str, partial_text: str) -> str:
+    """Card with per-section rendering during streaming.
+
+    Completed sections (all but the last) render as collapsed <details>.
+    The active (last) section renders open with a streaming indicator.
+    """
+    text = (partial_text or "").strip()
+    sections = _split_sections(text)
+
+    head = (
+        f'<div class="agent-card-head">'
+        f'<span class="agent-card-title">{html.escape(label)}</span>'
+        f'<span class="empty-pill">streaming…</span>'
+        f'</div>'
+    )
+
+    parts: list[str] = []
+    for i, (title, body) in enumerate(sections):
+        is_last = (i == len(sections) - 1)
+        body_html = md.markdown(
+            body or "",
+            extensions=["tables", "fenced_code", "sane_lists"],
+            output_format="html5",
+        )
+        body_html = _apply_conf_tags(body_html)
+
+        if is_last:
+            # Active section — open, with streaming indicator
+            status = (
+                ' <span style="color:var(--accent,#00d4aa);font-size:0.8em;'
+                'font-weight:400;margin-left:auto">streaming…</span>'
+            )
+            parts.append(
+                f'<details class="section" open>'
+                f'<summary>{html.escape(title)}{status}</summary>'
+                f'<div class="section-body">{body_html}</div>'
+                f'</details>'
+            )
+        else:
+            # Completed section — collapsed
+            parts.append(
+                f'<details class="section">'
+                f'<summary>{html.escape(title)}</summary>'
+                f'<div class="section-body">{body_html}</div>'
+                f'</details>'
+            )
+
+    return (
+        f'<div class="agent-card" style="border-left-color:{accent}">'
+        f'{head}{"".join(parts)}'
+        f'</div>'
+    )
+
+
 def render_cards_with_placeholders(
     deal_name: str,
     agents: Iterable[tuple[str, str]],

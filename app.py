@@ -31,6 +31,7 @@ from ui import inject_theme, render_stepper
 from ui.cards import (
     render_cards_with_placeholders,
     streaming_card_html,
+    streaming_sectioned_card_html,
     filled_card_html,
 )
 
@@ -202,6 +203,7 @@ AGENT_REGISTRY: dict[str, dict] = {
         "label": "Agent 3: Founder Diligence",
         "max_tokens": 8000, "tools": None,
         "post_save": None,
+        "sectioned_stream": True,
     },
     "agent4_market_diligence": {
         "system": AGENT4_SYSTEM, "user_fn": agent4_user,
@@ -264,6 +266,7 @@ def stream_into_card(handles: dict, key: str, deal_name: str) -> str | None:
 
     deal = load_deal(deal_name)
     accumulated = ""
+    use_sectioned = cfg.get("sectioned_stream", False)
     try:
         generator = stream_claude(
             cfg["system"], cfg["user_fn"](deal),
@@ -271,10 +274,16 @@ def stream_into_card(handles: dict, key: str, deal_name: str) -> str | None:
         )
         for chunk in generator:
             accumulated += chunk
-            placeholder.markdown(
-                streaming_card_html(label, accent, accumulated),
-                unsafe_allow_html=True,
-            )
+            if use_sectioned:
+                placeholder.markdown(
+                    streaming_sectioned_card_html(label, accent, accumulated),
+                    unsafe_allow_html=True,
+                )
+            else:
+                placeholder.markdown(
+                    streaming_card_html(label, accent, accumulated),
+                    unsafe_allow_html=True,
+                )
         deal[cfg["section"]][cfg["field"]] = accumulated
         save_deal(deal)
         save_output(deal_name, key, accumulated)
