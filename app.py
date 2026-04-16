@@ -23,7 +23,7 @@ sys.path.insert(0, str(Path(__file__).parent))
 
 from shared import (
     load_deal, save_deal, save_output, read_pdf, stream_claude,
-    list_deals, read_output, parse_deal_mode, extract_file_text,
+    list_deals, read_output, parse_technical_diligence_required, extract_file_text,
     DEALS_DIR, OUTPUTS_DIR,
 )
 
@@ -154,7 +154,7 @@ tab1, tab2, tab3 = st.tabs([
 
 def _a2_post(deal_name: str, output: str) -> None:
     deal = load_deal(deal_name)
-    deal["diligence"]["deal_mode"] = parse_deal_mode(output)
+    deal["diligence"]["technical_diligence_required"] = parse_technical_diligence_required(output)
     save_deal(deal)
 
 
@@ -512,6 +512,7 @@ with tab1:
             founder_name = st.text_input("Founder Name *", placeholder="e.g. Song Cao")
             linkedin_url = st.text_input("LinkedIn URL *", placeholder="https://linkedin.com/in/...")
             website = st.text_input("Company Website", placeholder="https://...")
+            deal_champion = st.text_input("Deal Champion", placeholder="e.g. Hongfei Xia")
             intro_source = st.text_input("Intro Source", placeholder="Who introduced the deal?")
             intro_context = st.text_area("Intro Context", placeholder="How did this deal come about?", height=68)
             initial_notes = st.text_area("Initial Notes", placeholder="Any preliminary notes...", height=68)
@@ -535,6 +536,7 @@ with tab1:
                 deal["inputs"]["founder_name"] = founder_name
                 deal["inputs"]["founder_linkedin"] = linkedin_url
                 deal["inputs"]["company_website"] = website or ""
+                deal["inputs"]["deal_champion"] = deal_champion or ""
                 deal["inputs"]["intro_source"] = intro_source or ""
                 deal["inputs"]["intro_context"] = intro_context or ""
                 deal["inputs"]["initial_notes"] = initial_notes or ""
@@ -774,7 +776,7 @@ with tab2:
             st.subheader("Run Agents")
 
             if agent_button("Agent 2: Diligence Management",
-                           "Diligence tracker + deal mode. Run first.",
+                           "IC update + diligence tracker. Run first.",
                            "run_a2", "agent2_diligence_mgmt", disabled=not has_notes):
                 st.session_state.active_stream = "agent2_diligence_mgmt"
 

@@ -76,7 +76,8 @@ def load_deal(deal_name: str) -> dict:
             "pitch_deck_path": "",
             "intro_source": "",
             "intro_context": "",
-            "initial_notes": ""
+            "initial_notes": "",
+            "deal_champion": ""
         },
         "pre_call": {
             "research_output": {},
@@ -91,7 +92,7 @@ def load_deal(deal_name: str) -> dict:
         },
         "diligence": {
             "tracker": {},
-            "deal_mode": "",
+            "technical_diligence_required": False,
             "founder_diligence": {},
             "market_diligence": {},
             "reference_check": {},
@@ -173,16 +174,25 @@ def extract_file_text(file_bytes: bytes, filename: str) -> str:
     return f"[Unsupported file type: {filename}]"
 
 
-# ─── Deal Mode Parser ────────────────────────────────────────────────────────
+# ─── Diligence Tracker Parsers ───────────────────────────────────────────────
 
-def parse_deal_mode(output: str) -> str:
-    """Extract deal mode (A, B, or A+B) from Agent 2 output text."""
-    lower = output.lower()
-    if "mode b" in lower and "mode a" in lower:
-        return "A+B"
-    elif "mode b" in lower:
-        return "B"
-    return "A"
+def parse_technical_diligence_required(output: str) -> bool:
+    """Extract the `technical_diligence_required` flag from Agent 2 output text.
+
+    Agent 2 emits a line like:
+        `technical_diligence_required: true`
+    (optionally wrapped in backticks). Returns True only if the value is
+    explicitly "true" — everything else (including missing / malformed) is
+    treated as False so downstream agents default to market-only diligence.
+    """
+    m = re.search(
+        r"technical_diligence_required\s*:\s*`?\s*(true|false)",
+        output or "",
+        re.IGNORECASE,
+    )
+    if not m:
+        return False
+    return m.group(1).strip().lower() == "true"
 
 
 # ─── API Caller ───────────────────────────────────────────────────────────────

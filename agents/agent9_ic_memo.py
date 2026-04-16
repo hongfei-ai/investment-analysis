@@ -54,17 +54,17 @@ Target 6–15 pages when formatted, depending on deal stage and complexity.
 def agent9_user(deal: dict) -> str:
     ic = deal["ic_preparation"]
     d = deal["diligence"]
-    mode = d.get('deal_mode', 'A')
+    technical_diligence_required = d.get('technical_diligence_required', False)
     tech_risk_section = """
 ### Technical Risk Assessment
-- Only include if Mode B (technical breakthrough / category creation) diligence was run.
+- Include only if technical diligence was run (i.e., the investment thesis depends on a technical breakthrough being real).
 - Assess technical feasibility, R&D risk, and defensibility of core technology claims.
-""" if "B" in mode else ""
+""" if technical_diligence_required else ""
 
     return f"""
 Company: {deal['company_name']}
 Founder: {deal['inputs']['founder_name']}
-Deal Mode: {mode}
+Technical Diligence Required: {technical_diligence_required}
 
 Primary source materials (decks, reports, contracts shared by the company):
 {deal['inputs'].get('diligence_materials', '[None provided]')}

@@ -9,7 +9,7 @@ import concurrent.futures
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).parent))
-from shared import load_deal, save_deal, save_output, call_claude, parse_deal_mode
+from shared import load_deal, save_deal, save_output, call_claude, parse_technical_diligence_required
 from agents.prompts import (
     AGENT2_SYSTEM, agent2_user,
     AGENT3_SYSTEM, agent3_user,
@@ -24,13 +24,13 @@ def run_agent2(deal):
     print("  Running Agent 2: Diligence Management...")
     output = call_claude(AGENT2_SYSTEM, agent2_user(deal))
 
-    mode = parse_deal_mode(output)
+    technical_diligence_required = parse_technical_diligence_required(output)
 
     deal["diligence"]["tracker"] = output
-    deal["diligence"]["deal_mode"] = mode
+    deal["diligence"]["technical_diligence_required"] = technical_diligence_required
     save_deal(deal)
     save_output(deal["deal_id"], "agent2_diligence_mgmt", output)
-    print(f"  ✓ Agent 2 complete. Deal Mode: {mode}")
+    print(f"  ✓ Agent 2 complete. Technical diligence required: {technical_diligence_required}")
     return deal
 
 
