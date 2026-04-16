@@ -286,46 +286,45 @@ Call Date: {call_date}
 
 {notes_block}
 
-Produce BOTH outputs below. They are mechanically parsed downstream — follow
-the structure exactly.
+Your output MUST follow exactly the structure shown below. Begin immediately
+with the `## IC UPDATE:` H2 header — no preamble, no separator banners, no
+introductory text, no "PART 1 / PART 2" labels. Use ONLY the H2 and H3
+headers shown; do not introduce additional headers, sub-headers, or
+numbering.
 
-═══════════════════════════════════════════════════════════════
-PART 1: IC UPDATE (800-1,500 words)
-═══════════════════════════════════════════════════════════════
+The IC update opens with the executive summary as the first paragraph
+directly under the H2 (no "Executive Summary" or "Overview" sub-header —
+the card UI surfaces this paragraph automatically as the executive
+summary). After the executive summary, write 1-2 short paragraphs of
+factual call context (who was on the call, what topics were covered, what
+was notably absent), then move into the H3 sections.
+
+────────────────────────────────────────
 
 ## IC UPDATE: {deal['company_name']}
 
-### 1. Overview
+[2-3 sentences serving as the executive summary: what ground the call
+covered, the one-line framing of what diligence must now resolve, and
+where the diligence weight falls. Do NOT state whether the deal looks
+attractive or unattractive. Do NOT indicate a lean.]
 
-#### Executive Summary
-2-3 sentences: what ground the call covered, the one-line framing of what
-diligence must now resolve, and where the diligence weight falls. Do NOT
-state whether the deal looks attractive or unattractive. Do NOT indicate
-a lean.
+[1-2 short paragraphs of factual call context.]
 
-[Then 1-2 short paragraphs of factual context: who was on the call, what
-topics were covered, and — if relevant — what topics were notably absent.]
+### What Changed
+3-5 points on what we learned on the call that updates the pre-call fact
+base — in either direction. Include observations about the founder as a
+person, not just what they said. Flag what wasn't discussed if the silence
+matters. Report facts and observations, not verdicts.
 
-### 2. What Changed (3-5 points)
-What did we learn on the call that updates the pre-call fact base — in
-either direction? Include observations about the founder as a person, not
-just what they said. Flag what wasn't discussed if the silence matters.
-Report facts and observations, not verdicts.
+### Key Assumptions to Test
+2-3 assumptions diligence must confirm or falsify. For each: state the
+assumption neutrally, and name the falsification path. Not generic
+platitudes — concrete claims that diligence can actually settle.
 
-### 3. Key Assumptions to Test (2-3 assumptions)
-Name the specific, testable propositions that diligence must confirm or
-falsify. For each: state the assumption neutrally, and name the
-falsification path. Not generic platitudes — concrete claims that diligence
-can actually settle.
-
-### 4. Where the Diligence Weight Falls
-One paragraph naming the dimension (founder / market / technical / thesis /
-compound) on which the material uncertainty is concentrated, and why. This
-is a diligence-focus statement, not a deal-recommendation.
-
-═══════════════════════════════════════════════════════════════
-PART 2: DILIGENCE TRACKER (structured)
-═══════════════════════════════════════════════════════════════
+### Where the Diligence Weight Falls
+One paragraph naming the dimension (founder / market / technical / thesis
+/ compound) on which the material uncertainty is concentrated, and why.
+This is a diligence-focus statement, not a deal-recommendation.
 
 ## DILIGENCE TRACKER: {deal['company_name']}
 
@@ -334,9 +333,8 @@ PART 2: DILIGENCE TRACKER (structured)
 (Set to true if the investment thesis depends on a technical breakthrough
 being real. Otherwise false.)
 
-### P1 Questions (decisive — must be answered before IC)
-
-For each P1 question, use this format:
+### P1 Questions
+Decisive — must be answered before IC. For each, use this format:
 
 **Q[#]: [The question]**
 - Hypothesis: [What you think is true, to be tested]
@@ -344,18 +342,17 @@ For each P1 question, use this format:
 - Resolution impact: [What outcomes would resolve the question, and how
   each outcome would reshape the diligence or the deal structure]
 
-(Produce 3-6 P1 questions. Quality over quantity.)
+Produce 3-6 P1 questions. Quality over quantity.
 
-### P2 Questions (material — should be answered but won't block)
-
-Same format. (Produce 3-6 P2 questions.)
+### P2 Questions
+Material — should be answered but won't block. Same format. Produce 3-6
+P2 questions.
 
 ### Agent Routing Summary
-
-One sentence per agent stating how heavily they're loaded on this deal and
-why. Example: "Agent 3 (founder diligence) carries the most weight — the
-Optiver strategic-vs-executor question is the largest remaining uncertainty
-and must be resolved first."
+One sentence per agent stating how heavily they're loaded on this deal
+and why. Example: "Agent 3 (founder diligence) carries the most weight —
+the Optiver strategic-vs-executor question is the largest remaining
+uncertainty and must be resolved first."
 
 - Agent 3 (Founder Diligence): [weight + rationale]
 - Agent 4 (Market & Technical Diligence): [weight + rationale]
