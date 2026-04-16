@@ -17,6 +17,7 @@ from agents.prompts import (
     AGENT5_SYSTEM, agent5_user,
     AGENT6_SYSTEM, agent6_user,
 )
+from agents.agent4_market import AGENT4_TOOLS, AGENT4_MAX_TOKENS
 
 
 def run_agent2(deal):
@@ -36,11 +37,12 @@ def run_agent2(deal):
 
 def run_parallel_agents(deal):
     """Run Agents 3, 4, 5, 6 in parallel using threads."""
+    # Task tuple: (system, user_msg, section, field, filename, max_tokens, tools)
     tasks = {
-        "agent3_founder": (AGENT3_SYSTEM, agent3_user(deal), "diligence", "founder_diligence", "agent3_founder_diligence"),
-        "agent4_market":  (AGENT4_SYSTEM, agent4_user(deal), "diligence", "market_diligence",  "agent4_market_diligence"),
-        "agent5_refcheck":(AGENT5_SYSTEM, agent5_user(deal), "diligence", "reference_check",   "agent5_reference_check"),
-        "agent6_thesis":  (AGENT6_SYSTEM, agent6_user(deal), "diligence", "thesis_check",      "agent6_thesis_check"),
+        "agent3_founder": (AGENT3_SYSTEM, agent3_user(deal), "diligence", "founder_diligence", "agent3_founder_diligence", 8000, None),
+        "agent4_market":  (AGENT4_SYSTEM, agent4_user(deal), "diligence", "market_diligence",  "agent4_market_diligence",  AGENT4_MAX_TOKENS, AGENT4_TOOLS),
+        "agent5_refcheck":(AGENT5_SYSTEM, agent5_user(deal), "diligence", "reference_check",   "agent5_reference_check",   8000, None),
+        "agent6_thesis":  (AGENT6_SYSTEM, agent6_user(deal), "diligence", "thesis_check",      "agent6_thesis_check",      8000, None),
     }
 
     agent_labels = {
@@ -53,10 +55,10 @@ def run_parallel_agents(deal):
     results = {}
 
     def run_one(key):
-        system, user_msg, section, field, filename = tasks[key]
+        system, user_msg, section, field, filename, max_tokens, tools = tasks[key]
         label = agent_labels[key]
         print(f"  → Starting {label}...")
-        output = call_claude(system, user_msg)
+        output = call_claude(system, user_msg, max_tokens=max_tokens, tools=tools)
         results[key] = (section, field, filename, output)
         print(f"  ✓ {label} complete")
         return key

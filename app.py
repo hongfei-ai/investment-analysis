@@ -46,6 +46,7 @@ from agents.prompts import (
     AGENT9_SYSTEM, agent9_user,
 )
 from agents.agent1_precall import AGENT1_TOOLS, AGENT1_MAX_TOKENS
+from agents.agent4_market import AGENT4_TOOLS, AGENT4_MAX_TOKENS
 
 # ─── Page Config ─────────────────────────────────────────────────────────────
 
@@ -206,7 +207,7 @@ AGENT_REGISTRY: dict[str, dict] = {
         "system": AGENT4_SYSTEM, "user_fn": agent4_user,
         "section": "diligence", "field": "market_diligence",
         "label": "Agent 4: Market Diligence",
-        "max_tokens": 8000, "tools": None,
+        "max_tokens": AGENT4_MAX_TOKENS, "tools": AGENT4_TOOLS,
         "post_save": None,
     },
     "agent5_reference_check": {
