@@ -85,12 +85,6 @@ def _filled_card(
     parsed = parse_output(output_text)
 
     head_tally = "" if skip_confidence else _tally_badges(parsed.total)
-    head = (
-        '<div class="agent-card-head">'
-        f'<span class="agent-card-title">{html.escape(label)}</span>'
-        f'<div class="agent-card-tally">{head_tally}</div>'
-        "</div>"
-    )
 
     exec_html = ""
     if parsed.exec_summary:
@@ -115,10 +109,16 @@ def _filled_card(
 
     sections_html = "".join(sections_html_parts)
 
+    # Entire card is collapsible — header is the toggle, body folds away
+    open_attr = " open" if initially_open else " open"  # default open after generation
     return (
-        f'<div class="agent-card" style="border-left-color:{accent}">'
-        f"{head}{exec_html}{sections_html}"
-        "</div>"
+        f'<details class="agent-card" style="border-left-color:{accent}"{open_attr}>'
+        f'<summary class="agent-card-head">'
+        f'<span class="agent-card-title">{html.escape(label)}</span>'
+        f'<div class="agent-card-tally">{head_tally}</div>'
+        f'</summary>'
+        f'<div class="agent-card-body">{exec_html}{sections_html}</div>'
+        "</details>"
     )
 
 

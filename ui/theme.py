@@ -291,6 +291,24 @@ hr, [data-testid="stDivider"] {{
   overflow: hidden;
 }}
 .agent-card.empty {{ opacity: 0.5; }}
+/* Collapsible card: summary is the header toggle */
+details.agent-card > summary.agent-card-head {{
+  cursor: pointer;
+  list-style: none;
+}}
+details.agent-card > summary.agent-card-head::-webkit-details-marker {{ display: none; }}
+details.agent-card > summary.agent-card-head::after {{
+  content: "▼";
+  font-size: 9px;
+  color: var(--text-muted);
+  transition: transform 0.15s;
+}}
+details.agent-card:not([open]) > summary.agent-card-head::after {{
+  transform: rotate(-90deg);
+}}
+details.agent-card:not([open]) {{
+  border-bottom: 1px solid var(--border);
+}}
 .agent-card-head {{
   padding: 14px 16px;
   display: flex;
