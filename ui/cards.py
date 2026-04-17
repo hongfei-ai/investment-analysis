@@ -213,10 +213,8 @@ def _split_sections(text: str) -> list[tuple[str, str]]:
         return [("Output", text)]
 
     sections: list[tuple[str, str]] = []
-    # Preamble before the first ### (e.g. H2 title line)
-    preamble = re.sub(r"^##\s+.+?\n*", "", text[: matches[0].start()]).strip()
-    if preamble:
-        sections.append(("Overview", preamble))
+    # Discard preamble before the first ### (H2 title line, whitespace, etc.)
+    # — the H2 title is already shown in the card header, no need to duplicate.
 
     for i, m in enumerate(matches):
         end = matches[i + 1].start() if i + 1 < len(matches) else len(text)
