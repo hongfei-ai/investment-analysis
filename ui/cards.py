@@ -9,7 +9,7 @@ from typing import Iterable
 import markdown as md
 import streamlit as st
 
-from .output_parser import Tally, parse_output
+from .output_parser import Tally, parse_output, _looks_like_exec_summary
 from .theme import AGENT_ACCENTS, COLORS
 
 
@@ -63,6 +63,33 @@ def _tally_badges(t: Tally) -> str:
     return "".join(parts)
 
 
+# ─── H3 sub-section splitter ─────────────────────────────────────────
+
+_H3_RE_CARDS = re.compile(r"^###\s+(.+?)\s*$", re.MULTILINE)
+
+
+def _split_h3_subsections(body: str) -> list[tuple[str | None, str]]:
+    """Split a section body by ### H3 headers.
+
+    Returns [(title_or_None, body), ...].  The first entry has title=None
+    if there is preamble text before the first ### header.
+    """
+    matches = list(_H3_RE_CARDS.finditer(body))
+    if not matches:
+        return [(None, body)]
+
+    result: list[tuple[str | None, str]] = []
+    preamble = body[: matches[0].start()].strip()
+    if preamble:
+        result.append((None, preamble))
+
+    for i, m in enumerate(matches):
+        end = matches[i + 1].start() if i + 1 < len(matches) else len(body)
+        result.append((m.group(1).strip(), body[m.end() : end].strip()))
+
+    return result
+
+
 # ─── Card rendering ───────────────────────────────────────────────────────
 
 def _empty_card(label: str, accent: str) -> str:
@@ -98,14 +125,44 @@ def _filled_card(
 
     sections_html_parts: list[str] = []
     for i, section in enumerate(parsed.sections):
-        body_html = _md_to_html(section.body, with_tags=not skip_confidence)
-        open_attr = " open" if (initially_open and i == 0) else ""
-        sections_html_parts.append(
-            f'<details class="section"{open_attr}>'
-            f'<summary>{html.escape(section.title)}</summary>'
-            f'<div class="section-body">{body_html}</div>'
-            "</details>"
-        )
+        # Split H2 section body into H3 sub-sections for nested collapsibility
+        h3_subs = _split_h3_subsections(section.body)
+
+        if len(h3_subs) > 1 or (len(h3_subs) == 1 and h3_subs[0][0] is not None):
+            # Has H3 structure — render each as a nested collapsible <details>
+            inner_parts: list[str] = []
+            for j, (sub_title, sub_body) in enumerate(h3_subs):
+                if sub_title is None:
+                    # Preamble text before first H3 (rare)
+                    if sub_body.strip():
+                        inner_parts.append(
+                            f'<div class="section-body">'
+                            f'{_md_to_html(sub_body, with_tags=not skip_confidence)}'
+                            f'</div>'
+                        )
+                    continue
+                # Skip Executive Summary H3 — already shown in the badge
+                if parsed.exec_summary and _looks_like_exec_summary(sub_title):
+                    continue
+                sub_body_html = _md_to_html(sub_body, with_tags=not skip_confidence)
+                sub_open = " open" if (initially_open and j <= 1) else ""
+                inner_parts.append(
+                    f'<details class="section"{sub_open}>'
+                    f'<summary>{html.escape(sub_title)}</summary>'
+                    f'<div class="section-body">{sub_body_html}</div>'
+                    f'</details>'
+                )
+            sections_html_parts.extend(inner_parts)
+        else:
+            # No H3 structure — render as a single collapsible section
+            body_html = _md_to_html(section.body, with_tags=not skip_confidence)
+            open_attr = " open" if (initially_open and i == 0) else ""
+            sections_html_parts.append(
+                f'<details class="section"{open_attr}>'
+                f'<summary>{html.escape(section.title)}</summary>'
+                f'<div class="section-body">{body_html}</div>'
+                f'</details>'
+            )
 
     sections_html = "".join(sections_html_parts)
 
