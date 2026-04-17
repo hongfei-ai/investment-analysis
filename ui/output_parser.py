@@ -79,14 +79,11 @@ def _extract_h3_exec(body: str) -> Optional[str]:
             end = h3s[i + 1].start() if i + 1 < len(h3s) else len(body)
             content = body[m.end():end].strip()
             if content:
-                clean = re.sub(r"\s+", " ", content)
-                if len(clean) > 480:
-                    clean = clean[:480].rsplit(" ", 1)[0] + "…"
-                return clean
+                return content
     return None
 
 
-def _first_paragraph(text: str, limit: int = 480) -> str:
+def _first_paragraph(text: str) -> str:
     """Pull the first non-empty paragraph as a fallback exec summary."""
     for chunk in text.split("\n\n"):
         chunk = chunk.strip()
@@ -94,10 +91,7 @@ def _first_paragraph(text: str, limit: int = 480) -> str:
             continue
         if chunk.startswith("#"):
             continue
-        clean = re.sub(r"\s+", " ", chunk)
-        if len(clean) > limit:
-            clean = clean[:limit].rsplit(" ", 1)[0] + "…"
-        return clean
+        return chunk
     return ""
 
 
