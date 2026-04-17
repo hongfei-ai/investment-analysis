@@ -251,6 +251,22 @@ AGENT_REGISTRY: dict[str, dict] = {
 }
 
 
+_H2_START_RE = re.compile(r"^##\s+", re.MULTILINE)
+
+
+def _strip_cot_preamble(text: str) -> str:
+    """Strip chain-of-thought text before the first ## H2 header.
+
+    Web-search agents often emit planning text ("Let me begin by...")
+    before the structured output. This preamble pollutes exec summary
+    extraction and creates phantom sections.
+    """
+    m = _H2_START_RE.search(text)
+    if m and m.start() > 0:
+        return text[m.start():]
+    return text
+
+
 def stream_into_card(handles: dict, key: str, deal_name: str) -> str | None:
     """Stream agent output into a right-panel card placeholder, then swap to styled card.
 
@@ -285,6 +301,9 @@ def stream_into_card(handles: dict, key: str, deal_name: str) -> str | None:
                     streaming_card_html(label, accent, accumulated),
                     unsafe_allow_html=True,
                 )
+        # Strip chain-of-thought preamble before first ## header
+        # (web_search agents often emit planning text before structured output)
+        accumulated = _strip_cot_preamble(accumulated)
         deal[cfg["section"]][cfg["field"]] = accumulated
         save_deal(deal)
         save_output(deal_name, key, accumulated)

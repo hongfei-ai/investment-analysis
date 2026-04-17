@@ -90,9 +90,9 @@ def parse_output(markdown: str) -> ParsedOutput:
     if not matches:
         sections.append(Section(title="Output", body=text, tally=_tally_for(text)))
     else:
-        preamble = text[: matches[0].start()].strip()
-        if preamble:
-            sections.append(Section(title="Sources Evaluated", body=preamble, tally=_tally_for(preamble)))
+        # Drop any preamble before the first ## H2 header — it's either
+        # chain-of-thought text (from tool-using agents) or a redundant
+        # title line. Never useful content for the card UI.
         for i, m in enumerate(matches):
             end = matches[i + 1].start() if i + 1 < len(matches) else len(text)
             body = text[m.end():end].strip()
