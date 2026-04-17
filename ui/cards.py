@@ -90,6 +90,17 @@ def _split_h3_subsections(body: str) -> list[tuple[str | None, str]]:
     return result
 
 
+# ─── Diligence title detection ───────────────────────────────────────
+
+_DILIGENCE_TITLE_HINTS = ("diligence:", "ic update:", "diligence tracker:")
+
+
+def _is_diligence_title(title: str) -> bool:
+    """Check if a section title is a card-level diligence header, not content."""
+    t = title.strip().lower()
+    return any(hint in t for hint in _DILIGENCE_TITLE_HINTS)
+
+
 # ─── Card rendering ───────────────────────────────────────────────────────
 
 def _empty_card(label: str, accent: str) -> str:
@@ -125,6 +136,26 @@ def _filled_card(
 
     sections_html_parts: list[str] = []
     for i, section in enumerate(parsed.sections):
+        # Skip card-level title sections (e.g. "MARKET DILIGENCE: TestCo")
+        # — the card header already shows the agent label.
+        if _is_diligence_title(section.title):
+            # Still process any H3 sub-sections within this title section
+            h3_subs = _split_h3_subsections(section.body)
+            if len(h3_subs) > 1 or (len(h3_subs) == 1 and h3_subs[0][0] is not None):
+                for sub_title, sub_body in h3_subs:
+                    if sub_title is None:
+                        continue
+                    if parsed.exec_summary and _looks_like_exec_summary(sub_title):
+                        continue
+                    sub_body_html = _md_to_html(sub_body, with_tags=not skip_confidence)
+                    sections_html_parts.append(
+                        f'<details class="section">'
+                        f'<summary>{html.escape(sub_title)}</summary>'
+                        f'<div class="section-body">{sub_body_html}</div>'
+                        f'</details>'
+                    )
+            continue
+
         # Split H2 section body into H3 sub-sections for nested collapsibility
         h3_subs = _split_h3_subsections(section.body)
 

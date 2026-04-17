@@ -118,14 +118,18 @@ Run Market Diligence. Use web_search aggressively to source market data,
 verify competitive claims, and {"independently verify the technical claims surfaced above" if technical_diligence_required else "pull current market signal"}.
 
 Produce the output in this exact format. Every section is required.
-Use ## and ### markdown headers exactly as shown — the UI parser depends
-on them. Each ### becomes its own collapsible section in the UI.
 
-CRITICAL: Begin your output IMMEDIATELY with the ## H2 header below.
-Do NOT write any text before it — no preamble, no overview, no summary
-of your research process, no "here is my analysis" introduction, no
-description of what searches you performed. The very first characters
-of your output must be "## MARKET DILIGENCE:".
+CRITICAL FORMAT RULES:
+1. Use EXACTLY ONE ## H2 header: "## MARKET DILIGENCE: {deal['company_name']}"
+   — this line must contain ONLY the company name, nothing else.
+2. Use ### (THREE hashes) for ALL section headers below it. NOT ## (two hashes).
+   The UI parser depends on ### to render each section as a collapsible block.
+3. Do NOT write ANY text before the ## H2 header — no preamble, no chain of
+   thought, no "I have sufficient data" or "Let me synthesize". The very first
+   characters of your output must be "## MARKET".
+4. Do NOT append any text after the company name on the ## line. Wrong:
+   "## MARKET DILIGENCE: AetherNow I have sufficient data..." — Right:
+   "## MARKET DILIGENCE: AetherNow"
 
 ## MARKET DILIGENCE: {deal['company_name']}
 

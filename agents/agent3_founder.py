@@ -208,7 +208,14 @@ REQUIRED OUTPUT
 ────────────────────────────────────────
 
 Produce the assessment in this exact format. Every section is required.
-Use ## and ### markdown headers exactly as shown.
+
+CRITICAL FORMAT RULES:
+1. Use EXACTLY ONE ## H2 header: the line shown below.
+   It must contain ONLY the founder name and company name, nothing else.
+2. Use ### (THREE hashes) for ALL section headers below it. NOT ## (two).
+3. Do NOT write ANY text before the ## H2 header — no preamble, no chain
+   of thought. The very first characters of your output must be "## FOUNDER".
+4. Do NOT append any text after the company name on the ## line.
 
 ## FOUNDER DILIGENCE: {inputs['founder_name']} / {deal['company_name']}
 
