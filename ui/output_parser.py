@@ -92,7 +92,7 @@ def parse_output(markdown: str) -> ParsedOutput:
     else:
         preamble = text[: matches[0].start()].strip()
         if preamble:
-            sections.append(Section(title="Overview", body=preamble, tally=_tally_for(preamble)))
+            sections.append(Section(title="Sources Evaluated", body=preamble, tally=_tally_for(preamble)))
         for i, m in enumerate(matches):
             end = matches[i + 1].start() if i + 1 < len(matches) else len(text)
             body = text[m.end():end].strip()

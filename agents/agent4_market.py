@@ -121,8 +121,11 @@ Produce the output in this exact format. Every section is required.
 Use ## and ### markdown headers exactly as shown — the UI parser depends
 on them. Each ### becomes its own collapsible section in the UI.
 
-Begin immediately with the H2 header — no preamble, no overview, no
-"here is my analysis" introduction.
+CRITICAL: Begin your output IMMEDIATELY with the ## H2 header below.
+Do NOT write any text before it — no preamble, no overview, no summary
+of your research process, no "here is my analysis" introduction, no
+description of what searches you performed. The very first characters
+of your output must be "## MARKET DILIGENCE:".
 
 ## MARKET DILIGENCE: {deal['company_name']}
 
@@ -140,6 +143,13 @@ smaller than the founder's stated TAM."
 Bad: "After conducting extensive market research using multiple
 sources, the following analysis examines the TAM/SAM/SOM, competitive
 landscape, and market dynamics for the company."]
+
+### Sources Evaluated
+[List ALL sources you drew on — analyst reports, databases, public
+filings, trade publications, forum threads, company websites, funding
+announcements, regulator publications, etc. Format as a bulleted list.
+This is where your research process is documented — not in the
+Executive Summary or as preamble text.]
 
 ### TAM/SAM/SOM
 [Bottom-up sizing with methodology. Pull analyst reports and stitch
