@@ -63,6 +63,29 @@ def _looks_like_exec_summary(title: str) -> bool:
     return any(hint in t for hint in _EXEC_HINTS)
 
 
+_H3_RE = re.compile(r"^###\s+(.+?)\s*$", re.MULTILINE)
+
+
+def _extract_h3_exec(body: str) -> Optional[str]:
+    """Scan H3 headers in a section body for an exec-summary-titled subsection.
+
+    Returns the content of the first H3 whose title matches _EXEC_HINTS,
+    or None if no match.  Handles both `### Title\\nContent` (no blank line)
+    and `### Title\\n\\nContent` (blank line) formats.
+    """
+    h3s = list(_H3_RE.finditer(body))
+    for i, m in enumerate(h3s):
+        if _looks_like_exec_summary(m.group(1)):
+            end = h3s[i + 1].start() if i + 1 < len(h3s) else len(body)
+            content = body[m.end():end].strip()
+            if content:
+                clean = re.sub(r"\s+", " ", content)
+                if len(clean) > 480:
+                    clean = clean[:480].rsplit(" ", 1)[0] + "…"
+                return clean
+    return None
+
+
 def _first_paragraph(text: str, limit: int = 480) -> str:
     """Pull the first non-empty paragraph as a fallback exec summary."""
     for chunk in text.split("\n\n"):
@@ -107,6 +130,10 @@ def parse_output(markdown: str) -> ParsedOutput:
             exec_tally = s.tally
             continue
         remaining.append(s)
+
+    if exec_summary is None and remaining:
+        # Scan H3 headers inside the first section for an exec summary
+        exec_summary = _extract_h3_exec(remaining[0].body)
 
     if exec_summary is None and remaining:
         exec_summary = _first_paragraph(remaining[0].body) or None
