@@ -127,33 +127,13 @@ CRITICAL FORMAT RULES:
 3. Do NOT write ANY text before the ## H2 header — no preamble, no chain of
    thought, no "I have sufficient data" or "Let me synthesize". The very first
    characters of your output must be "## MARKET".
-4. Do NOT append any text after the company name on the ## line. Wrong:
-   "## MARKET DILIGENCE: AetherNow I have sufficient data..." — Right:
-   "## MARKET DILIGENCE: AetherNow"
+4. Do NOT append any text after the company name on the ## line.
+5. Write ### Executive Summary LAST — it is the final section in the template.
+   The UI automatically extracts it and displays it at the top as a green badge.
+   Because you write it last, it will contain your actual findings (not planning
+   text). NEVER use this section for chain-of-thought or research planning.
 
 ## MARKET DILIGENCE: {deal['company_name']}
-
-### Executive Summary
-[2-3 sentences: the single most important market finding, the key risk
-to the market thesis, and whether the opportunity is as large as the
-founder claims. Lead with an insight, not a process description. Do NOT
-write "I researched X and found Y" — write the finding directly.
-
-Good: "The global algorithmic trading infrastructure market is
-~$15.7B (2024), but AIR's addressable segment — mid-tier prop desks
-seeking turnkey algo platforms — is closer to $800M, roughly 3x
-smaller than the founder's stated TAM."
-
-Bad: "After conducting extensive market research using multiple
-sources, the following analysis examines the TAM/SAM/SOM, competitive
-landscape, and market dynamics for the company."]
-
-### Sources Evaluated
-[List ALL sources you drew on — analyst reports, databases, public
-filings, trade publications, forum threads, company websites, funding
-announcements, regulator publications, etc. Format as a bulleted list.
-This is where your research process is documented — not in the
-Executive Summary or as preamble text.]
 
 ### TAM/SAM/SOM
 [Bottom-up sizing with methodology. Pull analyst reports and stitch
@@ -194,4 +174,30 @@ Agent 2 tracker."]
 [1-2 paragraphs synthesizing the above into a partner-readable
 verdict on market attractiveness. Reference specific findings from
 the sections above.]
+
+### Sources Evaluated
+[Bulleted list of ALL sources you drew on — analyst reports, databases,
+public filings, trade publications, forum threads, company websites,
+funding announcements, regulator publications, etc.]
+
+### Executive Summary
+[WRITE THIS LAST — after completing all sections above.
+
+2-3 sentences: the single most important market finding, the key risk
+to the market thesis, and whether the opportunity is as large as the
+founder claims.
+
+This section is extracted and displayed as the first thing partners see.
+It MUST contain your actual findings, NOT a description of your research
+process. Do NOT write "I researched X" or "Let me begin by" or "After
+conducting extensive market research" — write the finding directly.
+
+Good: "The global algorithmic trading infrastructure market is
+~$15.7B (2024), but AIR's addressable segment — mid-tier prop desks
+seeking turnkey algo platforms — is closer to $800M, roughly 3x
+smaller than the founder's stated TAM."
+
+Bad: "After conducting extensive market research using multiple
+sources, the following analysis examines the TAM/SAM/SOM, competitive
+landscape, and market dynamics for the company."]
 """
