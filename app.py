@@ -211,6 +211,7 @@ AGENT_REGISTRY: dict[str, dict] = {
         "label": "Agent 4: Market Diligence",
         "max_tokens": AGENT4_MAX_TOKENS, "tools": AGENT4_TOOLS,
         "post_save": None,
+        "sectioned_stream": True,
     },
     "agent5_reference_check": {
         "system": AGENT5_SYSTEM, "user_fn": agent5_user,

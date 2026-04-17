@@ -71,13 +71,32 @@ def agent4_user(deal: dict) -> str:
     technical_diligence_required = deal["diligence"].get("technical_diligence_required", False)
     tracker = deal["diligence"].get("tracker", {})
 
-    technical_section = """
-### Technical Feasibility & Category Creation Analysis
-#### 1. Material Technical Claims (extracted from ingested materials)
-#### 2. Independent Verification of Each Claim (with sources)
-#### 3. Incumbent / Competitor Capability Check
-#### 4. Gating Technical Risks
-#### 5. Comparable Category Creations (prior attempts, analogues, outcomes)
+    technical_sections = """
+### Material Technical Claims
+[Extract every material technical claim from the ingested materials
+(deck, founder call, founder's public writing). List each claim
+explicitly as a numbered item.]
+
+### Independent Verification of Each Claim
+[For each claim above, search for: academic literature, published
+benchmarks, competitor capabilities, open-source analogues, expert
+commentary, and any public refutations or supporting evidence.
+Cite sources for every finding.]
+
+### Incumbent / Competitor Capability Check
+[Explicitly check whether incumbents or well-resourced labs are
+already doing what the founder claims is novel. Name them with
+links and describe the delta.]
+
+### Gating Technical Risks
+[Name the engineering, data, or scientific risks that could falsify
+the thesis. Cite evidence for each risk.]
+
+### Comparable Category Creations
+[If the founder claims a nascent or non-existent category, verify
+by searching for prior attempts (including failures), adjacent
+markets, and early-mover incumbents. Name the comparable category
+creations you find with outcomes.]
 """ if technical_diligence_required else ""
 
     return f"""
@@ -95,20 +114,70 @@ Diligence Tracker (questions assigned to Market Diligence):
 Diligence Materials (decks, reports, contracts shared by the company):
 {deal['inputs'].get('diligence_materials', '[None provided]')}
 
-Run Market Diligence. Use web_search aggressively to source market data, verify competitive claims, and {"independently verify the technical claims surfaced above" if technical_diligence_required else "pull current market signal"}.
+Run Market Diligence. Use web_search aggressively to source market data,
+verify competitive claims, and {"independently verify the technical claims surfaced above" if technical_diligence_required else "pull current market signal"}.
 
-Produce:
+Produce the output in this exact format. Every section is required.
+Use ## and ### markdown headers exactly as shown — the UI parser depends
+on them. Each ### becomes its own collapsible section in the UI.
+
+Begin immediately with the H2 header — no preamble, no overview, no
+"here is my analysis" introduction.
 
 ## MARKET DILIGENCE: {deal['company_name']}
 
 ### Executive Summary
+[2-3 sentences: the single most important market finding, the key risk
+to the market thesis, and whether the opportunity is as large as the
+founder claims. Lead with an insight, not a process description. Do NOT
+write "I researched X and found Y" — write the finding directly.
 
-### Market Analysis
-#### 1. TAM/SAM/SOM (with methodology and sources)
-#### 2. Competitive Landscape (named incumbents + entrants, with sources)
-#### 3. Customer Validation (external signal from forums, trade press, ICP posts)
-#### 4. Market Timing (structural vs cyclical vs narrative, with sources)
-#### 5. APAC/SEA Market Dynamics (regionally-sourced data)
-{technical_section}
+Good: "The global algorithmic trading infrastructure market is
+~$15.7B (2024), but AIR's addressable segment — mid-tier prop desks
+seeking turnkey algo platforms — is closer to $800M, roughly 3x
+smaller than the founder's stated TAM."
+
+Bad: "After conducting extensive market research using multiple
+sources, the following analysis examines the TAM/SAM/SOM, competitive
+landscape, and market dynamics for the company."]
+
+### TAM/SAM/SOM
+[Bottom-up sizing with methodology. Pull analyst reports and stitch
+together your own estimate. When the founder's number and your number
+diverge materially, report both and explain the gap. Cite sources.]
+
+### Competitive Landscape
+[Named incumbents and new entrants sourced by direct search — company
+websites, funding announcements, product pages, customer lists. Do NOT
+trust the founder's competitor list without cross-checking. Cite sources.]
+
+### Customer Validation
+[External signal from Reddit, Hacker News, Blind, industry forums,
+trade press, and LinkedIn posts from ICP titles on whether the pain
+the founder describes is actually felt by buyers. Cite sources.]
+
+### Market Timing
+[What regulatory, technological, or behavioural shifts are creating
+the window — and are they genuine structural shifts, cyclical, or
+narrative? Cite sources.]
+
+### APAC/SEA Market Dynamics
+[SEA-specific market data — Bain/Google e-Conomy SEA report, regional
+analyst coverage, local regulator publications. Do not assume US/EU
+analogues translate. Cite sources.]
+{technical_sections}
+### Diligence Tracker Responses
+[For each P1/P2 question assigned to you by Agent 2, provide:
+- The question (as stated in the tracker)
+- Your assessment with sources
+- Confidence level: High / Medium / Low
+- If you couldn't answer: what additional evidence is needed
+
+If no questions were assigned, state "No questions assigned by
+Agent 2 tracker."]
+
 ### Overall Market Assessment
+[1-2 paragraphs synthesizing the above into a partner-readable
+verdict on market attractiveness. Reference specific findings from
+the sections above.]
 """
