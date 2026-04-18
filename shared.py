@@ -225,6 +225,19 @@ def parse_technical_diligence_required(output: str) -> bool:
 
 # ─── API Caller ───────────────────────────────────────────────────────────────
 
+def _cached_system(system_prompt: str) -> list[dict]:
+    """Wrap the system prompt in a cache_control block.
+
+    Agent system prompts are static across runs, so marking them ephemeral
+    lets repeated calls (debug loops, per-section reruns, retries within
+    the cache TTL) pay only ~10% of the input-token cost on cache hits.
+    For prompts under the model's minimum cacheable length the marker is
+    a silent no-op, so it's safe to apply universally.
+    """
+    return [{"type": "text", "text": system_prompt,
+             "cache_control": {"type": "ephemeral"}}]
+
+
 def call_claude(system_prompt: str, user_message: str, max_tokens: int = 8000,
                 tools: list | None = None, model: str | None = None) -> str:
     """Call Claude and return the text response.
@@ -236,7 +249,7 @@ def call_claude(system_prompt: str, user_message: str, max_tokens: int = 8000,
     kwargs = dict(
         model=model or MODEL,
         max_tokens=max_tokens,
-        system=system_prompt,
+        system=_cached_system(system_prompt),
         messages=[{"role": "user", "content": user_message}],
     )
     if tools:
@@ -261,7 +274,7 @@ def stream_claude(system_prompt: str, user_message: str, max_tokens: int = 8000,
     kwargs = dict(
         model=model or MODEL,
         max_tokens=max_tokens,
-        system=system_prompt,
+        system=_cached_system(system_prompt),
         messages=[{"role": "user", "content": user_message}],
     )
     if tools:
