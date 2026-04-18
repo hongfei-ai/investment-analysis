@@ -58,8 +58,27 @@ OUTPUTS_DIR.mkdir(exist_ok=True)
 
 # ─── Knowledge Store ──────────────────────────────────────────────────────────
 
+def _safe_deal_name(deal_name: str) -> str:
+    """Validate a deal name is safe to use as a filesystem path component.
+
+    Rejects empty strings, path separators, parent-directory references, and
+    leading dots so a crafted name can't escape DEALS_DIR / OUTPUTS_DIR.
+    """
+    if not isinstance(deal_name, str) or not deal_name.strip():
+        raise ValueError("deal_name must be a non-empty string")
+    name = deal_name.strip()
+    if "/" in name or "\\" in name or "\x00" in name:
+        raise ValueError(f"deal_name contains path separators: {deal_name!r}")
+    if name in (".", "..") or name.startswith("."):
+        raise ValueError(f"deal_name may not start with '.': {deal_name!r}")
+    if ".." in Path(name).parts:
+        raise ValueError(f"deal_name may not contain '..': {deal_name!r}")
+    return name
+
+
 def load_deal(deal_name: str) -> dict:
     """Load deal context from JSON, or create a new one."""
+    deal_name = _safe_deal_name(deal_name)
     path = DEALS_DIR / f"{deal_name}.json"
     if path.exists():
         return json.loads(path.read_text())
@@ -110,12 +129,14 @@ def load_deal(deal_name: str) -> dict:
 
 def save_deal(deal: dict):
     """Persist deal context to JSON."""
-    path = DEALS_DIR / f"{deal['deal_id']}.json"
+    deal_id = _safe_deal_name(deal["deal_id"])
+    path = DEALS_DIR / f"{deal_id}.json"
     path.write_text(json.dumps(deal, indent=2))
 
 
 def save_output(deal_name: str, agent_key: str, content: str):
     """Save agent output as markdown and return the path."""
+    deal_name = _safe_deal_name(deal_name)
     out_dir = OUTPUTS_DIR / deal_name
     out_dir.mkdir(parents=True, exist_ok=True)
     path = out_dir / f"{agent_key}.md"
@@ -257,6 +278,7 @@ def list_deals() -> list[str]:
 
 def read_output(deal_name: str, agent_key: str) -> str | None:
     """Load a saved agent markdown output, or None if not found."""
+    deal_name = _safe_deal_name(deal_name)
     path = OUTPUTS_DIR / deal_name / f"{agent_key}.md"
     if path.exists():
         return path.read_text(encoding="utf-8")
