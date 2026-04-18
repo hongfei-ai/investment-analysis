@@ -26,6 +26,7 @@ from shared import (
     list_deals, read_output, parse_technical_diligence_required, extract_file_text,
     DEALS_DIR, OUTPUTS_DIR, MODEL_SONNET,
 )
+from auth import render_login_gate
 
 from ui import inject_theme, render_stepper
 from ui.cards import (
@@ -62,29 +63,10 @@ inject_theme()
 
 # ─── Authentication ──────────────────────────────────────────────────────────
 
-def check_password() -> bool:
-    try:
-        correct_pw = st.secrets["app_password"]
-    except (KeyError, FileNotFoundError):
-        return True
-    if "authenticated" not in st.session_state:
-        st.session_state.authenticated = False
-    if st.session_state.authenticated:
-        return True
-    st.title("\U0001f4ca Investment Analysis")
-    st.caption("January Capital \u2014 Internal Tool")
-    pw = st.text_input("Password", type="password", placeholder="Enter password...")
-    if pw:
-        if pw == correct_pw:
-            st.session_state.authenticated = True
-            st.rerun()
-        else:
-            st.error("Incorrect password.")
-    return False
-
-
-if not check_password():
+current_user = render_login_gate()
+if current_user is None:
     st.stop()
+st.session_state["current_user_email"] = current_user.email
 
 # ─── Session State Init ─────────────────────────────────────────────────────
 
