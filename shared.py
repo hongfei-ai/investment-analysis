@@ -5,6 +5,7 @@ shared.py — Shared utilities, knowledge store, and API caller for all agents.
 import os
 import json
 import re
+import threading
 from datetime import datetime
 from pathlib import Path
 import anthropic
@@ -28,8 +29,6 @@ def _get_api_key():
         pass
     return None
 
-
-import threading
 
 # Lazy, thread-safe singleton client — created once, reused across all calls
 _client = None
@@ -271,8 +270,6 @@ def stream_claude(system_prompt: str, user_message: str, max_tokens: int = 8000,
             yield text
 
 
-# ─── Output Standards ─────────────────────────────────────────────────────────
-
 # ─── UI Helpers ──────────────────────────────────────────────────────────────
 
 def list_deals() -> list[str]:
@@ -291,8 +288,6 @@ def read_output(deal_name: str, agent_key: str) -> str | None:
         return path.read_text(encoding="utf-8")
     return None
 
-
-# ─── Output Standards ─────────────────────────────────────────────────────────
 
 OUTPUT_FORMAT_INSTRUCTIONS = """
 Output format standards (apply to every section):
