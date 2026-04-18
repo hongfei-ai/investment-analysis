@@ -114,7 +114,7 @@ def load_deal(deal_name: str) -> dict:
             "technical_diligence_required": False,
             "founder_diligence": {},
             "market_diligence": {},
-            "reference_check": {},
+            "reference_check": {},  # Agent 5 output: customer & traction intelligence (key retained for back-compat with persisted deals)
             "thesis_check": {},
             "human_review_notes": ""
         },

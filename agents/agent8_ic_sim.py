@@ -38,7 +38,10 @@ All diligence summaries:
 {diligence.get('tracker', '')}
 {diligence.get('founder_diligence', '')}
 {diligence.get('market_diligence', '')}
+
+Customer & Traction Intelligence (Agent 5):
 {diligence.get('reference_check', '')}
+
 {diligence.get('thesis_check', '')}
 
 Simulate the IC discussion and produce:

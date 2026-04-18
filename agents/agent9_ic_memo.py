@@ -77,7 +77,7 @@ All prior agent outputs (synthesize these — do not copy verbatim):
 [Agent 2 - Diligence Management]: {d.get('tracker', '')}
 [Agent 3 - Founder Diligence]: {d.get('founder_diligence', '')}
 [Agent 4 - Market Diligence]: {d.get('market_diligence', '')}
-[Agent 5 - Reference Check]: {d.get('reference_check', '')}
+[Agent 5 - Customer & Traction Intelligence]: {d.get('reference_check', '')}
 [Agent 6 - Thesis Check]: {d.get('thesis_check', '')}
 [Agent 7 - Pre-Mortem]: {ic.get('pre_mortem', '')}
 [Agent 8 - IC Simulation]: {ic.get('ic_simulation', '')}

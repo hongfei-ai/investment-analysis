@@ -217,7 +217,7 @@ AGENT_REGISTRY: dict[str, dict] = {
     "agent5_reference_check": {
         "system": AGENT5_SYSTEM, "user_fn": agent5_user,
         "section": "diligence", "field": "reference_check",
-        "label": "Agent 5: Reference Check",
+        "label": "Agent 5: Customer & Traction Intelligence",
         "max_tokens": 8000, "tools": None,
         "model": MODEL_SONNET,
         "post_save": None,
@@ -685,7 +685,7 @@ PHASE2_AGENTS = [
     ("agent2_diligence_mgmt", "Agent 2: Diligence Management"),
     ("agent3_founder_diligence", "Agent 3: Founder Diligence"),
     ("agent4_market_diligence", "Agent 4: Market Diligence"),
-    ("agent5_reference_check", "Agent 5: Reference Check"),
+    ("agent5_reference_check", "Agent 5: Customer & Traction Intelligence"),
     ("agent6_thesis_check", "Agent 6: Thesis Check"),
 ]
 PHASE2_KEYS = {k for k, _ in PHASE2_AGENTS}
@@ -829,8 +829,8 @@ with tab2:
                 st.session_state.active_stream = "agent4_market_diligence"
 
             st.divider()
-            if agent_button("Agent 5: Reference Check",
-                           "Reference intelligence, negative signals.",
+            if agent_button("Agent 5: Customer & Traction Intelligence",
+                           "Traction analysis from materials + profiles to source.",
                            "run_a5", "agent5_reference_check", disabled=not has_notes):
                 st.session_state.active_stream = "agent5_reference_check"
 

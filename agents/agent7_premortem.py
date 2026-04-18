@@ -37,7 +37,7 @@ Founder Diligence (Agent 3):
 Market Diligence (Agent 4):
 {diligence.get('market_diligence', '[Not available]')}
 
-Reference Check (Agent 5):
+Customer & Traction Intelligence (Agent 5):
 {diligence.get('reference_check', '[Not available]')}
 
 Thesis Check (Agent 6):

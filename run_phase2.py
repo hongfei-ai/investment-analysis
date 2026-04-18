@@ -48,7 +48,7 @@ def run_parallel_agents(deal):
     agent_labels = {
         "agent3_founder":  "Agent 3: Founder Diligence",
         "agent4_market":   "Agent 4: Market Diligence",
-        "agent5_refcheck": "Agent 5: Reference Check",
+        "agent5_refcheck": "Agent 5: Customer & Traction Intelligence",
         "agent6_thesis":   "Agent 6: Thesis Check",
     }
 
