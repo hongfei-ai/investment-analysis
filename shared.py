@@ -47,7 +47,8 @@ def get_client():
         _client = anthropic.Anthropic(api_key=key, max_retries=3, timeout=180.0)
         return _client
 
-MODEL = "claude-opus-4-6"
+MODEL = "claude-opus-4-7"
+MODEL_SONNET = "claude-sonnet-4-6"
 
 DEALS_DIR = Path("deals")
 OUTPUTS_DIR = Path("outputs")
