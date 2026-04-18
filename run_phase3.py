@@ -8,7 +8,7 @@ import sys
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).parent))
-from shared import load_deal, save_deal, save_output, call_claude
+from shared import load_deal, save_deal, save_output, call_claude, MODEL_SONNET
 from agents.prompts import (
     AGENT7_SYSTEM, agent7_user,
     AGENT8_SYSTEM, agent8_user,
@@ -27,7 +27,7 @@ def run(args):
 
     # Agent 7: Pre-Mortem
     print("  Running Agent 7: Pre-Mortem / Devil's Advocate...")
-    agent7_out = call_claude(AGENT7_SYSTEM, agent7_user(deal))
+    agent7_out = call_claude(AGENT7_SYSTEM, agent7_user(deal), model=MODEL_SONNET)
     deal["ic_preparation"]["pre_mortem"] = agent7_out
     save_deal(deal)
     save_output(args.deal, "agent7_premortem", agent7_out)

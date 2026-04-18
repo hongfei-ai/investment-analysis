@@ -24,7 +24,7 @@ sys.path.insert(0, str(Path(__file__).parent))
 from shared import (
     load_deal, save_deal, save_output, read_pdf, stream_claude,
     list_deals, read_output, parse_technical_diligence_required, extract_file_text,
-    DEALS_DIR, OUTPUTS_DIR,
+    DEALS_DIR, OUTPUTS_DIR, MODEL_SONNET,
 )
 
 from ui import inject_theme, render_stepper
@@ -195,6 +195,7 @@ AGENT_REGISTRY: dict[str, dict] = {
         "section": "diligence", "field": "tracker",
         "label": "Agent 2: Diligence Management",
         "max_tokens": 8000, "tools": None,
+        "model": MODEL_SONNET,
         "post_save": _a2_post,
     },
     "agent3_founder_diligence": {
@@ -218,6 +219,7 @@ AGENT_REGISTRY: dict[str, dict] = {
         "section": "diligence", "field": "reference_check",
         "label": "Agent 5: Reference Check",
         "max_tokens": 8000, "tools": None,
+        "model": MODEL_SONNET,
         "post_save": None,
     },
     "agent6_thesis_check": {
@@ -225,6 +227,7 @@ AGENT_REGISTRY: dict[str, dict] = {
         "section": "diligence", "field": "thesis_check",
         "label": "Agent 6: Thesis Check",
         "max_tokens": 8000, "tools": None,
+        "model": MODEL_SONNET,
         "post_save": _a6_post,
     },
     "agent7_premortem": {
@@ -232,6 +235,7 @@ AGENT_REGISTRY: dict[str, dict] = {
         "section": "ic_preparation", "field": "pre_mortem",
         "label": "Agent 7: Pre-Mortem",
         "max_tokens": 8000, "tools": None,
+        "model": MODEL_SONNET,
         "post_save": None,
     },
     "agent8_ic_simulation": {
@@ -288,6 +292,7 @@ def stream_into_card(handles: dict, key: str, deal_name: str) -> str | None:
         generator = stream_claude(
             cfg["system"], cfg["user_fn"](deal),
             max_tokens=cfg["max_tokens"], tools=cfg.get("tools"),
+            model=cfg.get("model"),
         )
         for chunk in generator:
             accumulated += chunk
@@ -481,6 +486,7 @@ def stream_sectioned_brief(deal_name: str) -> None:
         generator = stream_claude(
             cfg["system"], cfg["user_fn"](deal),
             max_tokens=cfg["max_tokens"], tools=cfg.get("tools"),
+            model=cfg.get("model"),
         )
         for chunk in generator:
             accumulated += chunk

@@ -226,7 +226,7 @@ def parse_technical_diligence_required(output: str) -> bool:
 # ─── API Caller ───────────────────────────────────────────────────────────────
 
 def call_claude(system_prompt: str, user_message: str, max_tokens: int = 8000,
-                tools: list | None = None) -> str:
+                tools: list | None = None, model: str | None = None) -> str:
     """Call Claude and return the text response.
 
     When tools are provided (e.g. web_search), the response may contain
@@ -234,7 +234,7 @@ def call_claude(system_prompt: str, user_message: str, max_tokens: int = 8000,
     all text blocks.
     """
     kwargs = dict(
-        model=MODEL,
+        model=model or MODEL,
         max_tokens=max_tokens,
         system=system_prompt,
         messages=[{"role": "user", "content": user_message}],
@@ -252,14 +252,14 @@ def call_claude(system_prompt: str, user_message: str, max_tokens: int = 8000,
 
 
 def stream_claude(system_prompt: str, user_message: str, max_tokens: int = 8000,
-                  tools: list | None = None):
+                  tools: list | None = None, model: str | None = None):
     """Stream Claude response, yielding text deltas as they arrive.
 
     When tools are provided (e.g. web_search), the stream handles server-side
     tool execution transparently — text_stream yields only the text deltas.
     """
     kwargs = dict(
-        model=MODEL,
+        model=model or MODEL,
         max_tokens=max_tokens,
         system=system_prompt,
         messages=[{"role": "user", "content": user_message}],
