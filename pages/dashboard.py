@@ -22,6 +22,7 @@ import streamlit as st
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
 from shared import load_deal, atomic_save_deal, _safe_deal_name
+from audit import append_audit
 from dashboard.queries import (
     DealSummary,
     filter_deals,
@@ -100,6 +101,23 @@ def _relative_time(iso_str: str, now: datetime) -> str:
 def _open_deal(deal_name: str) -> None:
     st.session_state.current_deal = deal_name
     st.switch_page("pages/deal.py")
+
+
+def _claim_deal(deal_name: str) -> None:
+    """Assign an unassigned deal to the current user. No-op if already owned."""
+    me = st.session_state.get("current_user_email", "")
+    if not me:
+        st.error("Not signed in.")
+        return
+    deal = load_deal(deal_name)
+    if deal.get("owner_email") not in (None, "", "unassigned"):
+        st.warning(f"Deal already owned by {deal['owner_email']}")
+        return
+    deal["owner_email"] = me
+    deal.setdefault("created_by", me)
+    atomic_save_deal(deal)
+    append_audit(deal_name, actor=me, action="owner_claimed", details={"new_owner": me})
+    st.rerun()
 
 
 # ─── Page ────────────────────────────────────────────────────────────────────
@@ -235,7 +253,9 @@ def _render_table(summaries):
         with cols[2]:
             owner = s.owner_email or "unassigned"
             if owner == "unassigned":
-                st.markdown(_chip("Unassigned", "#f59e0b"), unsafe_allow_html=True)
+                if st.button("Claim", key=f"claim_{s.deal_id}",
+                             help="Assign this deal to you", type="secondary"):
+                    _claim_deal(s.deal_id)
             else:
                 st.markdown(
                     f"<span style='font-size:13px;color:#c9d1d9'>{owner}</span>",

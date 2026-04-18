@@ -50,9 +50,12 @@ def test_expected_version_mismatch_raises(deals_in_tmp):
         shared.atomic_save_deal(stale, expected_version=1)
 
 
-def test_save_deal_backcompat_wrapper_still_works(deals_in_tmp):
+def test_save_deal_wraps_atomic_save(deals_in_tmp):
+    from auth import User
+    ada = User(email="ada@example.com")
     deal = shared.load_deal("Acme")
-    shared.save_deal(deal)
+    deal["owner_email"] = ada.email
+    shared.save_deal(deal, ada)
     reloaded = shared.load_deal("Acme")
     assert reloaded["_version"] == 1
 

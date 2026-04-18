@@ -46,6 +46,17 @@ from agents.prompts import (
 from agents.agent1_precall import AGENT1_TOOLS, AGENT1_MAX_TOKENS
 from agents.agent4_market import AGENT4_TOOLS, AGENT4_MAX_TOKENS
 
+from auth import User, is_editor
+
+
+def _user() -> User:
+    """Resolve the currently-authenticated User from session state."""
+    return User(
+        email=st.session_state.get("current_user_email", ""),
+        name=st.session_state.get("current_user_name", ""),
+        picture=st.session_state.get("current_user_picture", ""),
+    )
+
 # ─── Top Bar: Deal Selector ─────────────────────────────────────────────────
 
 top_col1, top_col2, top_col3 = st.columns([2, 6, 2])
@@ -82,13 +93,23 @@ with top_col3:
                 unsafe_allow_html=True,
             )
 
-# ─── Phase Stepper ──────────────────────────────────────────────────────────
+# ─── Phase Stepper + Read-Only Gate ─────────────────────────────────────────
 
 if st.session_state.current_deal:
     deal_info = load_deal(st.session_state.current_deal)
     render_stepper(deal_info.get("status", "pre-call"))
+    _editable = is_editor(deal_info, _user())
 else:
+    deal_info = None
     render_stepper(None)
+    _editable = True  # new-deal flow: creation happens via the form below
+
+if deal_info and not _editable:
+    owner = deal_info.get("owner_email") or "unassigned"
+    st.warning(
+        f"\U0001f512 Read-only view. Deal owner: **{owner}**. "
+        f"Ask the owner to add you as a collaborator to make changes."
+    )
 
 # ─── Phase Tabs ──────────────────────────────────────────────────────────────
 
@@ -106,7 +127,7 @@ tab1, tab2, tab3 = st.tabs([
 def _a2_post(deal_name: str, output: str) -> None:
     deal = load_deal(deal_name)
     deal["diligence"]["technical_diligence_required"] = parse_technical_diligence_required(output)
-    save_deal(deal)
+    save_deal(deal, _user())
 
 
 def _a6_post(deal_name: str, output: str) -> None:
@@ -117,13 +138,13 @@ def _a6_post(deal_name: str, output: str) -> None:
     )
     if all_done:
         deal["status"] = "post-diligence"
-        save_deal(deal)
+        save_deal(deal, _user())
 
 
 def _a9_post(deal_name: str, output: str) -> None:
     deal = load_deal(deal_name)
     deal["status"] = "complete"
-    save_deal(deal)
+    save_deal(deal, _user())
 
 
 def _a1_post(deal_name: str, output: str) -> None:
@@ -259,8 +280,8 @@ def stream_into_card(handles: dict, key: str, deal_name: str) -> str | None:
         # (web_search agents often emit planning text before structured output)
         accumulated = _strip_cot_preamble(accumulated)
         deal[cfg["section"]][cfg["field"]] = accumulated
-        save_deal(deal)
-        save_output(deal_name, key, accumulated)
+        save_deal(deal, _user())
+        save_output(deal_name, key, accumulated, _user())
         if cfg.get("post_save"):
             cfg["post_save"](deal_name, accumulated)
         placeholder.markdown(
@@ -278,12 +299,20 @@ def stream_into_card(handles: dict, key: str, deal_name: str) -> str | None:
 # ═══════════════════════════════════════════════════════════════════════════════
 
 def agent_button(label, caption, key, output_key, disabled=False):
-    """Render an agent description + run button. Returns True if clicked."""
+    """Render an agent description + run button. Returns True if clicked.
+
+    Auto-disables when the current user is not an editor of the deal
+    (set above as `_editable`) — agents mutate the deal, so read-only
+    viewers should not be able to spawn runs even if they URL-hack.
+    """
     st.markdown(f"**{label}**")
     st.caption(caption)
     exists = read_output(st.session_state.current_deal, output_key) is not None
     btn_label = "\u21bb Re-run" if exists else "\u25b6 Run"
-    return st.button(btn_label, key=key, type="primary", use_container_width=True, disabled=disabled)
+    return st.button(
+        btn_label, key=key, type="primary", use_container_width=True,
+        disabled=disabled or not _editable,
+    )
 
 
 def render_left_status() -> None:
@@ -473,8 +502,8 @@ def stream_sectioned_brief(deal_name: str) -> None:
 
         # Save
         deal[cfg["section"]][cfg["field"]] = accumulated
-        save_deal(deal)
-        save_output(deal_name, "agent1_precall", accumulated)
+        save_deal(deal, _user())
+        save_output(deal_name, "agent1_precall", accumulated, _user())
         if cfg.get("post_save"):
             cfg["post_save"](deal_name, accumulated)
 
@@ -542,7 +571,7 @@ with tab1:
                     deal["_deck_text"] = "\n\n".join(deck_parts)
                     deal["inputs"]["pitch_deck_path"] = ", ".join(file_names)
 
-                save_deal(deal)
+                save_deal(deal, _user())
                 st.session_state.current_deal = deal_name
                 st.session_state.active_stream = "agent1_precall"
 
@@ -612,8 +641,8 @@ with tab1:
                         sections[rerun_idx] = (target_title, accumulated)
                         new_output = _rebuild_output(sections)
                         deal["pre_call"]["research_output"] = new_output
-                        save_deal(deal)
-                        save_output(current, "agent1_precall", new_output)
+                        save_deal(deal, _user())
+                        save_output(current, "agent1_precall", new_output, _user())
                         st.rerun()
                     except Exception as e:
                         slots[rerun_idx].error(f"Re-run failed: {e}")
@@ -700,7 +729,7 @@ with tab2:
                     if annotations:
                         deal["call_notes"]["human_annotations"] = annotations
                     deal["status"] = "diligence"
-                    save_deal(deal)
+                    save_deal(deal, _user())
                     st.success("Notes saved!")
                     st.rerun()
                 else:
@@ -743,7 +772,7 @@ with tab2:
                 if materials_text:
                     deal = load_deal(current)
                     deal["inputs"]["diligence_materials"] = "\n\n".join(materials_text)
-                    save_deal(deal)
+                    save_deal(deal, _user())
 
                 st.success(f"Saved {len(saved_files)} file(s): {', '.join(saved_files)}")
 

@@ -232,14 +232,15 @@ def atomic_save_deal(deal: dict, expected_version: int | None = None) -> dict:
     return deal
 
 
-def save_deal(deal: dict):
-    """Back-compat wrapper around `atomic_save_deal` with no version check.
+def save_deal(deal: dict, user) -> dict:
+    """Persist a deal after verifying `user` may edit it.
 
-    Kept for existing callers in run_phase*.py and app.py. Milestone 5 will
-    require passing `expected_version` (via atomic_save_deal directly) so
-    concurrent writers can't clobber each other.
+    Raises auth.PermissionError if the user is not the owner and not in
+    `collaborators`. Wraps `atomic_save_deal`. `user` is required.
     """
-    atomic_save_deal(deal, expected_version=None)
+    from auth import require_editor
+    require_editor(deal, user)
+    return atomic_save_deal(deal, expected_version=None)
 
 
 def record_run(
@@ -289,9 +290,15 @@ def read_runs(deal_name: str) -> list[dict]:
     return out
 
 
-def save_output(deal_name: str, agent_key: str, content: str):
-    """Save agent output as markdown and return the path."""
+def save_output(deal_name: str, agent_key: str, content: str, user):
+    """Save agent output as markdown after verifying `user` may edit the deal.
+
+    Raises auth.PermissionError if the current user is not an editor of
+    the deal referenced by `deal_name`. `user` is required.
+    """
+    from auth import require_editor
     deal_name = _safe_deal_name(deal_name)
+    require_editor(load_deal(deal_name), user)
     out_dir = OUTPUTS_DIR / deal_name
     out_dir.mkdir(parents=True, exist_ok=True)
     path = out_dir / f"{agent_key}.md"

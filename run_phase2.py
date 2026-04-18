@@ -18,9 +18,10 @@ from agents.prompts import (
     AGENT6_SYSTEM, agent6_user,
 )
 from agents.agent4_market import AGENT4_TOOLS, AGENT4_MAX_TOKENS
+from auth import User
 
 
-def run_agent2(deal):
+def run_agent2(deal, user):
     """Run Diligence Management Agent (must complete before parallel agents)."""
     print("  Running Agent 2: Diligence Management...")
     output = call_claude(AGENT2_SYSTEM, agent2_user(deal), model=MODEL_SONNET)
@@ -29,13 +30,13 @@ def run_agent2(deal):
 
     deal["diligence"]["tracker"] = output
     deal["diligence"]["technical_diligence_required"] = technical_diligence_required
-    save_deal(deal)
-    save_output(deal["deal_id"], "agent2_diligence_mgmt", output)
+    save_deal(deal, user)
+    save_output(deal["deal_id"], "agent2_diligence_mgmt", output, user)
     print(f"  ✓ Agent 2 complete. Technical diligence required: {technical_diligence_required}")
     return deal
 
 
-def run_parallel_agents(deal):
+def run_parallel_agents(deal, user):
     """Run Agents 3, 4, 5, 6 in parallel using threads."""
     # Task tuple: (system, user_msg, section, field, filename, max_tokens, tools, model)
     tasks = {
@@ -76,15 +77,16 @@ def run_parallel_agents(deal):
     # Write all results to deal store
     for key, (section, field, filename, output) in results.items():
         deal[section][field] = output
-        save_output(deal["deal_id"], filename, output)
+        save_output(deal["deal_id"], filename, output, user)
 
-    save_deal(deal)
+    save_deal(deal, user)
     return deal
 
 
 def run(args):
     print(f"\n📋 Phase 2: Post-Call Diligence — {args.deal}\n")
 
+    user = User(email=args.user)
     deal = load_deal(args.deal)
 
     # Load call notes
@@ -97,16 +99,16 @@ def run(args):
     if args.annotations:
         deal["call_notes"]["human_annotations"] = args.annotations
     deal["status"] = "diligence"
-    save_deal(deal)
+    save_deal(deal, user)
 
     # Step 1: Agent 2 (must complete first — produces diligence tracker + deal mode)
-    deal = run_agent2(deal)
+    deal = run_agent2(deal, user)
 
     # Step 2: Agents 3, 4, 5, 6 in parallel
-    deal = run_parallel_agents(deal)
+    deal = run_parallel_agents(deal, user)
 
     deal["status"] = "post-diligence"
-    save_deal(deal)
+    save_deal(deal, user)
 
     print(f"\n✅ Phase 2 complete. All outputs in: outputs/{args.deal}/")
     print("   → Review all outputs before running Phase 3 (Checkpoint 2)\n")
@@ -121,6 +123,7 @@ def run(args):
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
     parser.add_argument("--deal", required=True, help="Company name (same as used in Phase 1)")
+    parser.add_argument("--user", required=True, help="Your email (must be the deal owner or a collaborator)")
     parser.add_argument("--notes", required=True, help="Path to call notes file (.txt or .md)")
     parser.add_argument("--annotations", help="Deal champion post-call annotations (inline text)")
     run(parser.parse_args())
