@@ -20,31 +20,21 @@ def _stub_streamlit_if_missing():
 
 
 def test_agent5_registry_invariants():
-    _stub_streamlit_if_missing()
-    sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
+    """Agent 5 must stay closed-book (tools=None) and pinned to Sonnet.
 
-    # Importing app.py pulls a lot of Streamlit UI; we only need the registry.
-    # If the full import fails in the test env, we fall back to reading the
-    # source to confirm the invariants.
-    try:
-        import app
-        cfg = app.AGENT_REGISTRY["agent5_reference_check"]
-    except Exception:
-        src = (Path(__file__).resolve().parent.parent / "app.py").read_text()
-        # field and tools invariants visible in the registry block
-        assert '"agent5_reference_check"' in src
-        assert '"field": "reference_check"' in src
-        # confirm no tools wired to Agent 5 (the registry block has tools: None)
-        # Quick structural check: within ~8 lines after the agent5 key, "tools": None appears
-        i = src.index('"agent5_reference_check"')
-        window = src[i:i + 500]
-        assert '"tools": None' in window
-        assert '"model": MODEL_SONNET' in window
-        return
-
-    assert cfg["section"] == "diligence"
-    assert cfg["field"] == "reference_check"
-    assert cfg.get("tools") is None
+    The registry now lives in pages/deal.py after the M4 navigation split;
+    importing it requires a full Streamlit runtime, so the lightweight
+    guard here reads the source file and checks the invariants textually.
+    """
+    src = (Path(__file__).resolve().parent.parent / "pages" / "deal.py").read_text()
+    assert '"agent5_reference_check"' in src
+    assert '"field": "reference_check"' in src
+    # Quick structural check: within the registry block for agent5,
+    # `"tools": None` and `"model": MODEL_SONNET` must both appear.
+    i = src.index('"agent5_reference_check"')
+    window = src[i:i + 500]
+    assert '"tools": None' in window
+    assert '"model": MODEL_SONNET' in window
 
 
 def test_run_phase2_agent5_task_tuple():
