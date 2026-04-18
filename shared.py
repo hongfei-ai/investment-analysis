@@ -2,14 +2,22 @@
 shared.py — Shared utilities, knowledge store, and API caller for all agents.
 """
 
-import os
+import contextlib
 import json
+import os
 import re
 import threading
-from datetime import datetime
+from datetime import datetime, timezone
 from pathlib import Path
+
 import anthropic
 from dotenv import load_dotenv
+
+try:
+    import fcntl
+    _HAS_FCNTL = True
+except ImportError:  # Windows
+    _HAS_FCNTL = False
 
 load_dotenv(Path(__file__).parent / ".env", override=True)
 
@@ -76,16 +84,58 @@ def _safe_deal_name(deal_name: str) -> str:
     return name
 
 
-def load_deal(deal_name: str) -> dict:
-    """Load deal context from JSON, or create a new one."""
-    deal_name = _safe_deal_name(deal_name)
-    path = DEALS_DIR / f"{deal_name}.json"
-    if path.exists():
-        return json.loads(path.read_text())
+class VersionMismatch(RuntimeError):
+    """Raised when atomic_save_deal is called with a stale expected_version."""
+
+
+def _deal_path(deal_name: str) -> Path:
+    return DEALS_DIR / f"{_safe_deal_name(deal_name)}.json"
+
+
+def _lock_path(deal_name: str) -> Path:
+    return DEALS_DIR / f".{_safe_deal_name(deal_name)}.lock"
+
+
+@contextlib.contextmanager
+def _file_lock(lock_path: Path):
+    """Advisory exclusive file lock. No-op on platforms without fcntl."""
+    lock_path.parent.mkdir(parents=True, exist_ok=True)
+    if not _HAS_FCNTL:
+        yield
+        return
+    f = open(lock_path, "a")
+    try:
+        fcntl.flock(f.fileno(), fcntl.LOCK_EX)
+        yield
+    finally:
+        try:
+            fcntl.flock(f.fileno(), fcntl.LOCK_UN)
+        except OSError:
+            pass
+        f.close()
+
+
+def _new_deal_skeleton(deal_name: str) -> dict:
+    """Skeleton for a brand-new deal — already includes multi-user fields."""
+    now = datetime.now(timezone.utc).isoformat()
     return {
         "deal_id": deal_name,
         "company_name": deal_name,
-        "date_created": datetime.now().isoformat(),
+        "date_created": now,
+        "updated_at": now,
+        "_version": 0,
+        "owner_email": "unassigned",
+        "collaborators": [],
+        "created_by": None,
+        "deal_stage": "contacted",
+        "priority": None,
+        "round_size": None,
+        "check_size": None,
+        "valuation": None,
+        "sector": None,
+        "geography": None,
+        "next_step": None,
+        "next_step_due": None,
         "status": "pre-call",
         "inputs": {
             "founder_name": "",
@@ -96,42 +146,147 @@ def load_deal(deal_name: str) -> dict:
             "intro_source": "",
             "intro_context": "",
             "initial_notes": "",
-            "deal_champion": ""
+            "deal_champion": "",
         },
         "pre_call": {
             "research_output": {},
             "suggested_questions": [],
-            "human_notes": ""
+            "human_notes": "",
         },
         "call_notes": {
             "raw_transcript_or_notes": "",
             "date_of_call": "",
             "attendees": [],
-            "human_annotations": ""
+            "human_annotations": "",
         },
         "diligence": {
             "tracker": {},
             "technical_diligence_required": False,
             "founder_diligence": {},
             "market_diligence": {},
-            "reference_check": {},  # Agent 5 output: customer & traction intelligence (key retained for back-compat with persisted deals)
+            "reference_check": {},  # Agent 5 output: customer & traction intelligence
             "thesis_check": {},
-            "human_review_notes": ""
+            "human_review_notes": "",
         },
         "ic_preparation": {
             "pre_mortem": {},
             "ic_simulation": {},
             "ic_memo": {},
-            "human_edits": ""
-        }
+            "human_edits": "",
+        },
     }
 
 
-def save_deal(deal: dict):
-    """Persist deal context to JSON."""
+def load_deal(deal_name: str) -> dict:
+    """Load deal context from JSON, or create a new one.
+
+    Lazily runs pending migrations on existing files so old deals pick up
+    multi-user fields without an explicit batch job.
+    """
+    deal_name = _safe_deal_name(deal_name)
+    path = _deal_path(deal_name)
+    if not path.exists():
+        return _new_deal_skeleton(deal_name)
+    deal = json.loads(path.read_text())
+    # Local import avoids a circular dependency at module load time.
+    from migrations import run_all
+    return run_all(deal)
+
+
+def atomic_save_deal(deal: dict, expected_version: int | None = None) -> dict:
+    """Persist a deal with optimistic locking and atomic replace.
+
+    If `expected_version` is provided, the on-disk `_version` must match
+    or VersionMismatch is raised. On success, `_version` is bumped and
+    `updated_at` is stamped in UTC. The file is rewritten via a tmp +
+    `os.replace()` pair so a reader can never see a half-written file.
+
+    Returns the deal dict after the write (with updated `_version` and
+    `updated_at`) so callers can continue to mutate without re-reading.
+    """
     deal_id = _safe_deal_name(deal["deal_id"])
-    path = DEALS_DIR / f"{deal_id}.json"
-    path.write_text(json.dumps(deal, indent=2))
+    path = _deal_path(deal_id)
+    lock_path = _lock_path(deal_id)
+
+    with _file_lock(lock_path):
+        current_version = 0
+        if path.exists():
+            try:
+                current_version = int(json.loads(path.read_text()).get("_version", 0))
+            except (json.JSONDecodeError, ValueError, TypeError):
+                current_version = 0
+
+        if expected_version is not None and current_version != expected_version:
+            raise VersionMismatch(
+                f"Deal {deal_id!r} version mismatch: expected "
+                f"{expected_version}, found {current_version}. Reload and retry."
+            )
+
+        deal["_version"] = current_version + 1
+        deal["updated_at"] = datetime.now(timezone.utc).isoformat()
+
+        tmp_path = path.with_suffix(path.suffix + ".tmp")
+        tmp_path.write_text(json.dumps(deal, indent=2), encoding="utf-8")
+        os.replace(tmp_path, path)
+
+    return deal
+
+
+def save_deal(deal: dict):
+    """Back-compat wrapper around `atomic_save_deal` with no version check.
+
+    Kept for existing callers in run_phase*.py and app.py. Milestone 5 will
+    require passing `expected_version` (via atomic_save_deal directly) so
+    concurrent writers can't clobber each other.
+    """
+    atomic_save_deal(deal, expected_version=None)
+
+
+def record_run(
+    deal_name: str,
+    agent_key: str,
+    status: str,
+    by_user: str | None,
+    started_at: str | None = None,
+    ended_at: str | None = None,
+) -> None:
+    """Append one agent-run record to `deals/{name}.runs.jsonl`.
+
+    `status` is typically 'running', 'done', or 'error'. Any string is
+    allowed; the file is append-only so a caller can write a 'running'
+    row first and a 'done' row when the agent finishes.
+    """
+    name = _safe_deal_name(deal_name)
+    path = DEALS_DIR / f"{name}.runs.jsonl"
+    path.parent.mkdir(parents=True, exist_ok=True)
+    record = {
+        "ts": datetime.now(timezone.utc).isoformat(),
+        "agent_key": agent_key,
+        "status": status,
+        "by_user": by_user,
+        "started_at": started_at,
+        "ended_at": ended_at,
+    }
+    with path.open("a", encoding="utf-8") as f:
+        f.write(json.dumps(record) + "\n")
+
+
+def read_runs(deal_name: str) -> list[dict]:
+    """Return run records in append order (oldest first), or [] if none."""
+    name = _safe_deal_name(deal_name)
+    path = DEALS_DIR / f"{name}.runs.jsonl"
+    if not path.exists():
+        return []
+    out = []
+    for line in path.read_text(encoding="utf-8").splitlines():
+        line = line.strip()
+        if not line:
+            continue
+        try:
+            out.append(json.loads(line))
+        except json.JSONDecodeError:
+            continue
+    return out
 
 
 def save_output(deal_name: str, agent_key: str, content: str):
