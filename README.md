@@ -4,11 +4,11 @@
 
 ### 1. Install dependencies
 ```
-pip install anthropic python-dotenv PyPDF2
+pip install -r requirements.txt
 ```
 
 ### 2. Set your API key
-Create a `.env` file in this folder:
+Copy `.env.example` to `.env` and fill in your key:
 ```
 ANTHROPIC_API_KEY=your_key_here
 ```
