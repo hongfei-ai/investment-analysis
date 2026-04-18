@@ -180,17 +180,24 @@ def extract_file_text(file_bytes: bytes, filename: str) -> str:
     if name_lower.endswith((".txt", ".md", ".csv")):
         return file_bytes.decode("utf-8", errors="replace")
 
-    if name_lower.endswith(".pdf"):
-        with tempfile.NamedTemporaryFile(suffix=".pdf", delete=False) as tmp:
+    def _via_tempfile(suffix: str, reader):
+        tmp = tempfile.NamedTemporaryFile(suffix=suffix, delete=False)
+        try:
             tmp.write(file_bytes)
             tmp.flush()
-            return read_pdf(tmp.name)
+            tmp.close()
+            return reader(tmp.name)
+        finally:
+            try:
+                os.unlink(tmp.name)
+            except OSError:
+                pass
+
+    if name_lower.endswith(".pdf"):
+        return _via_tempfile(".pdf", read_pdf)
 
     if name_lower.endswith((".docx", ".doc")):
-        with tempfile.NamedTemporaryFile(suffix=".docx", delete=False) as tmp:
-            tmp.write(file_bytes)
-            tmp.flush()
-            return read_docx(tmp.name)
+        return _via_tempfile(".docx", read_docx)
 
     return f"[Unsupported file type: {filename}]"
 
