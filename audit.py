@@ -55,3 +55,37 @@ def read_audit(deal_name: str) -> list[dict[str, Any]]:
         except json.JSONDecodeError:
             continue
     return records
+
+
+def read_activity(deal_name: str) -> list[dict[str, Any]]:
+    """Merge audit entries and agent runs, newest first.
+
+    Returns a list of uniform dicts with keys: ts, kind ("audit"|"run"),
+    actor, action, details. This is the single source the UI reads to
+    render the activity feed.
+    """
+    entries: list[dict[str, Any]] = []
+    for r in read_audit(deal_name):
+        entries.append({
+            "ts":      r.get("ts", ""),
+            "kind":    "audit",
+            "actor":   r.get("actor") or "",
+            "action":  r.get("action") or "",
+            "details": r.get("details") or {},
+        })
+
+    for r in shared.read_runs(deal_name):
+        entries.append({
+            "ts":      r.get("ts") or r.get("started_at") or "",
+            "kind":    "run",
+            "actor":   r.get("by_user") or "",
+            "action":  f"agent_run:{r.get('status', '?')}",
+            "details": {
+                "agent_key": r.get("agent_key"),
+                "started_at": r.get("started_at"),
+                "ended_at":   r.get("ended_at"),
+            },
+        })
+
+    entries.sort(key=lambda e: e.get("ts") or "", reverse=True)
+    return entries

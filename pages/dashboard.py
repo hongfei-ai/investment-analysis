@@ -201,13 +201,18 @@ def _start_new_deal_dialog():
             st.error(str(e))
             return
         deal = load_deal(safe)
-        if deal.get("_version", 0) == 0:
+        is_new = deal.get("_version", 0) == 0
+        me = st.session_state.get("current_user_email") or "unassigned"
+        if is_new:
             # Brand-new deal: stamp owner + founder on first save
-            deal["owner_email"] = st.session_state.get("current_user_email") or "unassigned"
-            deal["created_by"] = st.session_state.get("current_user_email")
+            deal["owner_email"] = me
+            deal["created_by"] = me
             if founder.strip():
                 deal["inputs"]["founder_name"] = founder.strip()
         atomic_save_deal(deal)
+        if is_new:
+            append_audit(safe, actor=me, action="deal_created",
+                         details={"founder": founder.strip() or None})
         _open_deal(safe)
 
 
