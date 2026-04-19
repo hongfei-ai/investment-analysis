@@ -182,13 +182,35 @@ p, li, span, label, div {{ color: var(--text); }}
   letter-spacing: 0.04em;
 }}
 
+/* Dialog / modal: force theme colors regardless of Streamlit's base config */
+[data-testid="stDialog"], [data-testid="stModal"], div[role="dialog"] {{
+  background: var(--surface) !important;
+  color: var(--text) !important;
+}}
+[data-testid="stDialog"] *, [data-testid="stModal"] *, div[role="dialog"] * {{
+  color: var(--text);
+}}
+[data-testid="stDialog"] h1, [data-testid="stDialog"] h2, [data-testid="stDialog"] h3,
+[data-testid="stModal"] h1, [data-testid="stModal"] h2, [data-testid="stModal"] h3,
+div[role="dialog"] h1, div[role="dialog"] h2, div[role="dialog"] h3 {{
+  color: var(--text) !important;
+}}
+
 /* Dialog: tint inputs so they stand out against the white modal surface */
 [data-testid="stModal"] .stTextInput input,
 [data-testid="stModal"] .stTextArea textarea,
+[data-testid="stDialog"] .stTextInput input,
+[data-testid="stDialog"] .stTextArea textarea,
 div[role="dialog"] .stTextInput input,
 div[role="dialog"] .stTextArea textarea {{
   background: var(--bg) !important;
+  color: var(--text) !important;
   border: 1.5px solid var(--border) !important;
+}}
+[data-testid="stModal"] .stTextInput label,
+[data-testid="stDialog"] .stTextInput label,
+div[role="dialog"] .stTextInput label {{
+  color: var(--text) !important;
 }}
 
 .stSelectbox div[data-baseweb="select"] > div {{
