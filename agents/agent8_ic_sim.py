@@ -22,6 +22,8 @@ Conviction Profile classification:
 - FALSE CONSENSUS WARNING: All scores 6-7 (flag — this may indicate groupthink)
 - PASS: Multiple scores below 5 on critical dimensions
 
+Agent 7's pre-mortem includes a Scenario Matrix (each row tagged KILL or MEDIOCRE), a Deal-Killer Threshold line, a Consistency Check against Agent 6's thesis verdict, and a Shared Blind Spot Check. Use these as your primary anchors — cite specific scenario rows when the Skeptic or Domain Expert marks down a dimension, and surface the Shared Blind Spot section when classifying FALSE CONSENSUS WARNING or HIGH POTENTIAL SIGNAL.
+
 {OUTPUT_FORMAT_INSTRUCTIONS}
 """
 
