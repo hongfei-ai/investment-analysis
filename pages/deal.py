@@ -116,107 +116,7 @@ if deal_info and not _editable:
     )
 
 
-# ─── Deal Metadata Editor + Activity Feed ───────────────────────────────────
-
-_STAGE_OPTIONS = [
-    "sourced", "contacted", "met", "diligence",
-    "ic", "term_sheet", "invested", "passed", "tracking",
-]
-_STAGE_LABELS_INLINE = {
-    "sourced":   "Sourced",     "contacted":  "Contacted",
-    "met":       "Met",         "diligence":  "Diligence",
-    "ic":        "IC",          "term_sheet": "Term Sheet",
-    "invested":  "Invested",    "passed":     "Passed",
-    "tracking":  "Tracking",
-}
-
-
-def _audit_metadata_change(deal_name: str, field: str, old, new) -> None:
-    append_audit(
-        deal_name,
-        actor=_user().email or "anonymous",
-        action="metadata_changed",
-        details={"field": field, "from": old, "to": new},
-    )
-
-
-def _render_metadata_editor(deal: dict) -> None:
-    """Owner-only: inline form to change stage / priority / next step / collaborators."""
-    if not _editable:
-        return
-    with st.expander("\u2699\ufe0f Deal metadata", expanded=False):
-        with st.form(key=f"meta_{deal['deal_id']}"):
-            c1, c2 = st.columns([0.5, 0.5])
-            with c1:
-                stage = st.selectbox(
-                    "Deal stage",
-                    options=_STAGE_OPTIONS,
-                    index=_STAGE_OPTIONS.index(deal.get("deal_stage", "contacted"))
-                        if deal.get("deal_stage") in _STAGE_OPTIONS else 1,
-                    format_func=lambda s: _STAGE_LABELS_INLINE.get(s, s.title()),
-                )
-                priority = st.selectbox(
-                    "Priority",
-                    options=["None", "H", "M", "L"],
-                    index=(["None", "H", "M", "L"].index(deal.get("priority"))
-                           if deal.get("priority") in ("H", "M", "L") else 0),
-                )
-            with c2:
-                next_step = st.text_input(
-                    "Next step", value=deal.get("next_step") or "",
-                    placeholder="e.g. Schedule deep dive with CFO",
-                )
-                collab_text = st.text_area(
-                    "Collaborators (one email per line)",
-                    value="\n".join(deal.get("collaborators") or []),
-                    height=80,
-                )
-            submitted = st.form_submit_button("Save metadata", type="primary")
-        if submitted:
-            changes: dict[str, tuple] = {}
-            new_priority = None if priority == "None" else priority
-            new_collabs = [e.strip() for e in collab_text.splitlines() if e.strip()]
-
-            if stage != deal.get("deal_stage"):
-                changes["deal_stage"] = (deal.get("deal_stage"), stage)
-            if new_priority != deal.get("priority"):
-                changes["priority"] = (deal.get("priority"), new_priority)
-            if (next_step or None) != (deal.get("next_step") or None):
-                changes["next_step"] = (deal.get("next_step"), next_step or None)
-            if new_collabs != (deal.get("collaborators") or []):
-                changes["collaborators"] = (deal.get("collaborators") or [], new_collabs)
-
-            if not changes:
-                st.info("No changes.")
-                return
-
-            deal["deal_stage"] = stage
-            deal["priority"] = new_priority
-            deal["next_step"] = next_step or None
-            deal["collaborators"] = new_collabs
-            save_deal(deal, _user())
-            for field, (old, new) in changes.items():
-                _audit_metadata_change(deal["deal_id"], field, old, new)
-            st.success(f"Saved {len(changes)} change(s).")
-            st.rerun()
-
-        # Quick-action buttons: Pass / Move to tracking
-        q1, q2, _ = st.columns([0.25, 0.3, 0.45])
-        with q1:
-            if st.button("\u26d4 Pass on deal", key=f"pass_{deal['deal_id']}"):
-                old = deal.get("deal_stage")
-                deal["deal_stage"] = "passed"
-                save_deal(deal, _user())
-                _audit_metadata_change(deal["deal_id"], "deal_stage", old, "passed")
-                st.rerun()
-        with q2:
-            if st.button("\U0001f4c5 Move to tracking", key=f"track_{deal['deal_id']}"):
-                old = deal.get("deal_stage")
-                deal["deal_stage"] = "tracking"
-                save_deal(deal, _user())
-                _audit_metadata_change(deal["deal_id"], "deal_stage", old, "tracking")
-                st.rerun()
-
+# ─── Activity Feed ──────────────────────────────────────────────────────────
 
 def _render_activity_feed(deal_name: str) -> None:
     entries = read_activity(deal_name)
@@ -255,7 +155,6 @@ def _render_activity_feed(deal_name: str) -> None:
 
 
 if deal_info:
-    _render_metadata_editor(deal_info)
     _render_activity_feed(st.session_state.current_deal)
 
 # ─── Phase Tabs ──────────────────────────────────────────────────────────────
