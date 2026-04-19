@@ -121,17 +121,35 @@ def current_user() -> Optional[User]:
     return _streamlit_user()
 
 
+def _dev_user_from_secrets() -> Optional[User]:
+    """Dev bypass: if `dev_user_email` is set in secrets, skip OAuth."""
+    try:
+        import streamlit as st
+        email = st.secrets.get("dev_user_email")
+    except Exception:
+        return None
+    if not email:
+        return None
+    return User(email=str(email), name=str(email).split("@")[0])
+
+
 def render_login_gate() -> Optional[User]:
     """Render the login UI and return the User if authenticated, else None.
 
     Call at the top of a Streamlit page; caller should `st.stop()` on None.
-    Handles three states:
-      1. Not logged in              → show login button, return None
-      2. Logged in, off-domain      → show access-denied, return None
-      3. Logged in, on-domain       → return User
-      4. Auth not configured        → show setup instructions, return None
+    Handles these states:
+      0. `dev_user_email` set in secrets → return that User (OAuth bypassed)
+      1. Not logged in                   → show login button, return None
+      2. Logged in, off-domain           → show access-denied, return None
+      3. Logged in, on-domain            → return User
+      4. Auth not configured             → show setup instructions, return None
     """
     import streamlit as st
+
+    dev_user = _dev_user_from_secrets()
+    if dev_user is not None:
+        st.sidebar.info(f"Dev mode: signed in as {dev_user.email}")
+        return dev_user
 
     try:
         st_user = st.user
@@ -139,8 +157,9 @@ def render_login_gate() -> Optional[User]:
         st.error(
             "Authentication is not configured. Add an `[auth]` block with "
             "`redirect_uri`, `cookie_secret`, `client_id`, `client_secret`, "
-            "and `server_metadata_url` to `.streamlit/secrets.toml`. "
-            "See `.streamlit/secrets.toml.example`."
+            "and `server_metadata_url` to `.streamlit/secrets.toml`, or set "
+            "`dev_user_email = \"you@example.com\"` at the top of the file "
+            "to bypass OAuth for local development."
         )
         return None
 
