@@ -35,13 +35,26 @@ st.set_page_config(
 )
 
 from ui import inject_theme
-from auth import render_login_gate
+from auth import User, render_login_gate
 
 inject_theme()
 
-current_user = render_login_gate()
-if current_user is None:
-    st.stop()
+# Dev bypass: set DEV_USER_EMAIL in your environment (or dev_user_email in
+# secrets.toml) to skip Google OAuth entirely. Unset both to enable real SSO.
+_dev_email = os.environ.get("DEV_USER_EMAIL") or ""
+if not _dev_email:
+    try:
+        _dev_email = st.secrets.get("dev_user_email") or ""
+    except Exception:
+        _dev_email = ""
+
+if _dev_email:
+    current_user = User(email=_dev_email, name=_dev_email.split("@")[0])
+else:
+    current_user = render_login_gate()
+    if current_user is None:
+        st.stop()
+
 st.session_state["current_user_email"] = current_user.email
 st.session_state["current_user_name"] = current_user.name
 st.session_state["current_user_picture"] = current_user.picture
