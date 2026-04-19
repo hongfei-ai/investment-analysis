@@ -47,6 +47,7 @@ def migrate(deal: dict) -> dict:
     )
 
     deal.setdefault("deal_stage", _STATUS_TO_STAGE.get(status, "contacted"))
+    deal.setdefault("is_active", True)
 
     for k in (
         "priority",

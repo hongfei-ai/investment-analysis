@@ -60,6 +60,15 @@ def test_new_optional_fields_default_to_none():
         assert deal[k] is None
 
 
+def test_is_active_defaults_to_true():
+    assert migrate_001({"status": "pre-call"})["is_active"] is True
+
+
+def test_existing_is_active_false_preserved():
+    deal = migrate_001({"status": "pre-call", "is_active": False})
+    assert deal["is_active"] is False
+
+
 def test_run_all_applies_every_migration():
     deal = {"status": "pre-call"}
     result = run_all(dict(deal))

@@ -26,7 +26,7 @@ from shared import (
 )
 from audit import append_audit, read_activity
 
-from ui import render_stepper
+from ui import render_stepper, render_theme_toggle
 from ui.cards import (
     render_cards_with_placeholders,
     streaming_card_html,
@@ -59,16 +59,15 @@ def _user() -> User:
         picture=st.session_state.get("current_user_picture", ""),
     )
 
-# ─── Top Bar: Deal Selector ─────────────────────────────────────────────────
+# ─── Top Bar: Back Button, Deal Selector, Theme Toggle ──────────────────────
 
-top_col1, top_col2, top_col3 = st.columns([2, 6, 2])
+top_col1, top_col2, top_col3, top_col4 = st.columns([1.2, 5.6, 1.2, 2.0])
 
 with top_col1:
-    st.markdown(
-        f'<div style="font-size:17px;font-weight:700;padding-top:6px;">'
-        f'<span style="color:#00d4aa">&#9632;</span> Investment Analysis</div>',
-        unsafe_allow_html=True,
-    )
+    if st.button("\u2190 Dashboard", key="back_to_dashboard",
+                 use_container_width=True,
+                 help="Return to the Deal Evaluation Dashboard"):
+        st.switch_page("pages/dashboard.py")
 
 with top_col2:
     existing_deals = list_deals()
@@ -85,12 +84,15 @@ with top_col2:
         st.session_state.current_deal = selected
 
 with top_col3:
+    render_theme_toggle("theme_toggle_deal")
+
+with top_col4:
     if st.session_state.current_deal:
         deal_info = load_deal(st.session_state.current_deal)
         founder = deal_info["inputs"].get("founder_name", "")
         if founder:
             st.markdown(
-                f'<div style="text-align:right;padding-top:8px;color:#8b949e;font-size:13px">'
+                f'<div style="text-align:right;padding-top:8px;color:var(--text-muted);font-size:13px">'
                 f'{founder}</div>',
                 unsafe_allow_html=True,
             )
@@ -674,15 +676,53 @@ with tab1:
     with left:
         st.subheader("Inputs")
 
+        _prefill = (deal_info or {}).get("inputs", {}) if deal_info else {}
+        _prefill_company = (deal_info or {}).get("company_name") or \
+                            (st.session_state.current_deal or "")
+
         with st.form("phase1_form"):
-            deal_name = st.text_input("Company Name *", placeholder="e.g. AGI7")
-            founder_name = st.text_input("Founder Name *", placeholder="e.g. Song Cao")
-            linkedin_url = st.text_input("LinkedIn URL *", placeholder="https://linkedin.com/in/...")
-            website = st.text_input("Company Website", placeholder="https://...")
-            deal_champion = st.text_input("Deal Champion", placeholder="e.g. Hongfei Xia")
-            intro_source = st.text_input("Intro Source", placeholder="Who introduced the deal?")
-            intro_context = st.text_area("Intro Context", placeholder="How did this deal come about?", height=68)
-            initial_notes = st.text_area("Initial Notes", placeholder="Any preliminary notes...", height=68)
+            deal_name = st.text_input(
+                "Company Name *",
+                value=_prefill_company,
+                placeholder="e.g. AGI7",
+            )
+            founder_name = st.text_input(
+                "Founder Name *",
+                value=_prefill.get("founder_name", ""),
+                placeholder="e.g. Song Cao",
+            )
+            linkedin_url = st.text_input(
+                "LinkedIn URL *",
+                value=_prefill.get("founder_linkedin", ""),
+                placeholder="https://linkedin.com/in/...",
+            )
+            website = st.text_input(
+                "Company Website",
+                value=_prefill.get("company_website", ""),
+                placeholder="https://...",
+            )
+            deal_champion = st.text_input(
+                "Deal Champion",
+                value=_prefill.get("deal_champion", ""),
+                placeholder="e.g. Hongfei Xia",
+            )
+            intro_source = st.text_input(
+                "Intro Source",
+                value=_prefill.get("intro_source", ""),
+                placeholder="Who introduced the deal?",
+            )
+            intro_context = st.text_area(
+                "Intro Context",
+                value=_prefill.get("intro_context", ""),
+                placeholder="How did this deal come about?",
+                height=68,
+            )
+            initial_notes = st.text_area(
+                "Initial Notes",
+                value=_prefill.get("initial_notes", ""),
+                placeholder="Any preliminary notes...",
+                height=68,
+            )
             input_files = st.file_uploader(
                 "Supporting Documents (pitch deck, one-pager, etc.)",
                 type=["pdf", "doc", "docx", "txt", "md"],
@@ -700,6 +740,7 @@ with tab1:
                 st.error("Company Name, Founder Name, and LinkedIn URL are required.")
             else:
                 deal = load_deal(deal_name)
+                deal["company_name"] = deal_name
                 deal["inputs"]["founder_name"] = founder_name
                 deal["inputs"]["founder_linkedin"] = linkedin_url
                 deal["inputs"]["company_website"] = website or ""

@@ -56,6 +56,7 @@ class DealSummary:
     version: int = 0
     deal_stage: str = "contacted"
     status: str = "pre-call"
+    is_active: bool = True
     priority: str | None = None
     round_size: str | None = None
     check_size: str | None = None
@@ -121,6 +122,7 @@ def _summary_from_deal(deal: dict) -> DealSummary:
         version=int(deal.get("_version", 0) or 0),
         deal_stage=deal.get("deal_stage", "contacted") or "contacted",
         status=deal.get("status", "pre-call") or "pre-call",
+        is_active=bool(deal.get("is_active", True)),
         priority=deal.get("priority"),
         round_size=deal.get("round_size"),
         check_size=deal.get("check_size"),
@@ -204,29 +206,26 @@ def filter_deals(
     *,
     owner_email: str | None = None,
     my_email: str | None = None,
-    priorities: Iterable[str] | None = None,
+    active_only: bool = False,
 ) -> list[DealSummary]:
     """Apply dashboard filters to a list of DealSummary.
 
     `owner_email` matches deals whose owner is that email (case-insensitive).
     `my_email` is the "My deals" filter: owner OR collaborator.
-    `priorities` is an any-of whitelist (None = all allowed).
+    `active_only` keeps only deals with is_active=True.
     """
-    want_priorities = {p.upper() for p in priorities} if priorities else None
     owner_lc = owner_email.lower() if owner_email else None
     my_lc = my_email.lower() if my_email else None
 
     out: list[DealSummary] = []
     for s in summaries:
+        if active_only and not s.is_active:
+            continue
         if owner_lc and (s.owner_email or "").lower() != owner_lc:
             continue
         if my_lc:
             collaborators_lc = {c.lower() for c in s.collaborators}
             if (s.owner_email or "").lower() != my_lc and my_lc not in collaborators_lc:
-                continue
-        if want_priorities:
-            p = (s.priority or "").upper()
-            if p not in want_priorities:
                 continue
         out.append(s)
     return out

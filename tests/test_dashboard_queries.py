@@ -145,16 +145,25 @@ def test_filter_my_deals_covers_owner_and_collaborator():
     assert {s.deal_id for s in out} == {"Acme", "Beta"}
 
 
-def test_filter_by_priority():
-    out = queries.filter_deals(_summaries_for_test(), priorities=["H"])
-    assert {s.deal_id for s in out} == {"Acme", "Beta"}
+def test_filter_active_only():
+    summaries = _summaries_for_test()
+    # Mark Gamma inactive; all others active by default
+    for s in summaries:
+        if s.deal_id == "Gamma":
+            s.is_active = False
+    out = queries.filter_deals(summaries, active_only=True)
+    assert "Gamma" not in {s.deal_id for s in out}
 
 
 def test_filter_combines_criteria():
+    summaries = _summaries_for_test()
+    for s in summaries:
+        if s.deal_id == "Delta":
+            s.is_active = False
     out = queries.filter_deals(
-        _summaries_for_test(),
+        summaries,
         my_email="ada@example.com",
-        priorities=["H"],
+        active_only=True,
     )
     assert {s.deal_id for s in out} == {"Acme", "Beta"}
 

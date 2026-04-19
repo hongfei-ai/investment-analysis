@@ -1,9 +1,40 @@
-"""Dark professional theme: design tokens + injected CSS."""
+"""Light + dark theme: design tokens and injected CSS with a runtime toggle.
+
+Default theme is "light" (editorial-VC palette inspired by january.capital).
+Call `inject_theme()` once at the top of each page. Call `render_theme_toggle()`
+wherever you want the switch to appear; it flips `st.session_state["theme"]`
+and triggers a rerun.
+"""
 
 import streamlit as st
 
 
-COLORS = {
+# ─── Palettes ────────────────────────────────────────────────────────────────
+
+LIGHT = {
+    "bg":          "#FAF8F3",   # warm paper
+    "surface":     "#FFFFFF",
+    "surface_alt": "#F2EFE8",
+    "border":      "#E3DFD4",
+    "border_soft": "#EDEAE1",
+    "text":        "#1A1A1A",
+    "text_muted":  "#6B6B6B",
+    "text_dim":    "#A0A0A0",
+    "accent":      "#2C5F4E",   # forest green
+    "accent_hover": "#224B3D",
+    "on_accent":   "#FFFFFF",
+    "hc":          "#2C5F4E",
+    "mc":          "#B8870B",
+    "lc":          "#A8321C",
+    "gap":         "#5B4E7A",
+    "src":         "#3B5A80",
+    "exec_bg":     "rgba(44,95,78,0.06)",
+    "exec_border": "rgba(44,95,78,0.20)",
+    "body_text":   "#2A2A2A",
+    "section_open_bg": "rgba(0,0,0,0.02)",
+}
+
+DARK = {
     "bg":          "#0d1117",
     "surface":     "#161b22",
     "surface_alt": "#1c2230",
@@ -12,62 +43,90 @@ COLORS = {
     "text":        "#e6edf3",
     "text_muted":  "#8b949e",
     "text_dim":    "#484f58",
-    "accent":      "#00d4aa",
+    "accent":      "#5FAE92",
+    "accent_hover": "#4E9C80",
+    "on_accent":   "#0d1117",
     "hc":          "#3fb950",
     "mc":          "#d29922",
     "lc":          "#f85149",
     "gap":         "#a371f7",
     "src":         "#58a6ff",
+    "exec_bg":     "rgba(95,174,146,0.06)",
+    "exec_border": "rgba(95,174,146,0.20)",
+    "body_text":   "#c9d1d9",
+    "section_open_bg": "rgba(255,255,255,0.02)",
 }
 
 
 AGENT_ACCENTS = {
-    "agent1_precall":            "#00d4aa",
-    "agent2_diligence_mgmt":     "#58a6ff",
-    "agent3_founder_diligence":  "#00d4aa",
-    "agent4_market_diligence":   "#3b82f6",
-    "agent5_reference_check":    "#a371f7",
-    "agent6_thesis_check":       "#d29922",
-    "agent7_premortem":          "#f85149",
-    "agent8_ic_simulation":      "#a371f7",
-    "agent9_ic_memo":            "#00d4aa",
+    "agent1_precall":            "#2C5F4E",
+    "agent2_diligence_mgmt":     "#3B5A80",
+    "agent3_founder_diligence":  "#2C5F4E",
+    "agent4_market_diligence":   "#3B5A80",
+    "agent5_reference_check":    "#5B4E7A",
+    "agent6_thesis_check":       "#B8870B",
+    "agent7_premortem":          "#A8321C",
+    "agent8_ic_simulation":      "#5B4E7A",
+    "agent9_ic_memo":            "#2C5F4E",
 }
 
 
-_CSS = f"""
+def _current_palette() -> dict:
+    mode = st.session_state.get("theme", "light")
+    return LIGHT if mode == "light" else DARK
+
+
+# Backwards-compatible alias: other modules import `COLORS`.
+# Evaluated lazily via a module-level property-style proxy.
+class _ColorsProxy:
+    def __getitem__(self, key):
+        return _current_palette()[key]
+    def __getattr__(self, key):
+        return _current_palette()[key]
+
+COLORS = _ColorsProxy()
+
+
+def _build_css(c: dict) -> str:
+    return f"""
 <style>
 :root {{
-  --bg: {COLORS['bg']};
-  --surface: {COLORS['surface']};
-  --surface-alt: {COLORS['surface_alt']};
-  --border: {COLORS['border']};
-  --border-soft: {COLORS['border_soft']};
-  --text: {COLORS['text']};
-  --text-muted: {COLORS['text_muted']};
-  --text-dim: {COLORS['text_dim']};
-  --accent: {COLORS['accent']};
-  --hc: {COLORS['hc']};
-  --mc: {COLORS['mc']};
-  --lc: {COLORS['lc']};
-  --gap: {COLORS['gap']};
-  --src: {COLORS['src']};
+  --bg: {c['bg']};
+  --surface: {c['surface']};
+  --surface-alt: {c['surface_alt']};
+  --border: {c['border']};
+  --border-soft: {c['border_soft']};
+  --text: {c['text']};
+  --text-muted: {c['text_muted']};
+  --text-dim: {c['text_dim']};
+  --accent: {c['accent']};
+  --accent-hover: {c['accent_hover']};
+  --on-accent: {c['on_accent']};
+  --hc: {c['hc']};
+  --mc: {c['mc']};
+  --lc: {c['lc']};
+  --gap: {c['gap']};
+  --src: {c['src']};
+  --body-text: {c['body_text']};
 }}
 
-/* Tighten top padding */
+html, body, [data-testid="stAppViewContainer"], [data-testid="stMain"] {{
+  background: var(--bg) !important;
+  color: var(--text) !important;
+}}
+
 .block-container {{
   padding-top: 1.6rem;
   max-width: 1400px;
 }}
 
-/* Headings */
 h1, h2, h3, h4, h5 {{
   color: var(--text) !important;
   letter-spacing: -0.01em;
 }}
 
-/* ─── Native widget polish ──────────────────────────────────────────── */
+p, li, span, label, div {{ color: var(--text); }}
 
-/* Buttons */
 .stButton > button, .stDownloadButton > button, .stFormSubmitButton > button {{
   border-radius: 6px;
   border: 1px solid var(--border);
@@ -84,13 +143,13 @@ h1, h2, h3, h4, h5 {{
 .stButton > button:active {{ transform: translateY(1px); }}
 .stButton > button[kind="primary"], .stFormSubmitButton > button[kind="primary"] {{
   background: var(--accent);
-  color: var(--bg);
+  color: var(--on-accent);
   border-color: var(--accent);
 }}
 .stButton > button[kind="primary"]:hover, .stFormSubmitButton > button[kind="primary"]:hover {{
-  background: #00b894;
-  border-color: #00b894;
-  color: var(--bg);
+  background: var(--accent-hover);
+  border-color: var(--accent-hover);
+  color: var(--on-accent);
 }}
 .stButton > button:disabled {{
   opacity: 0.45;
@@ -99,7 +158,6 @@ h1, h2, h3, h4, h5 {{
   border-color: var(--border-soft);
 }}
 
-/* Inputs / textareas */
 .stTextInput input, .stTextArea textarea, .stNumberInput input, .stDateInput input {{
   background: var(--surface) !important;
   border: 1px solid var(--border) !important;
@@ -120,14 +178,12 @@ h1, h2, h3, h4, h5 {{
   letter-spacing: 0.04em;
 }}
 
-/* Selectbox */
 .stSelectbox div[data-baseweb="select"] > div {{
   background: var(--surface) !important;
   border-color: var(--border) !important;
   border-radius: 6px !important;
 }}
 
-/* File uploader */
 [data-testid="stFileUploader"] section {{
   background: var(--surface) !important;
   border: 1.5px dashed var(--border) !important;
@@ -138,12 +194,8 @@ h1, h2, h3, h4, h5 {{
   border-color: var(--accent) !important;
 }}
 
-/* Radio */
-.stRadio > div {{
-  background: transparent;
-}}
+.stRadio > div {{ background: transparent; }}
 
-/* Tabs */
 button[data-baseweb="tab"] {{
   color: var(--text-muted) !important;
   font-weight: 500 !important;
@@ -160,36 +212,30 @@ div[data-baseweb="tab-list"] {{
   border-bottom: 1px solid var(--border-soft) !important;
 }}
 
-/* Dividers */
 hr, [data-testid="stDivider"] {{
   border-color: var(--border-soft) !important;
 }}
 
-/* Expander (legacy fallback) */
 [data-testid="stExpander"] {{
   background: var(--surface);
   border: 1px solid var(--border);
   border-radius: 8px;
 }}
 
-/* Progress bar */
 .stProgress > div > div > div > div {{
   background: var(--accent) !important;
 }}
 
-/* Captions */
 [data-testid="stCaptionContainer"], .stCaption, small {{
   color: var(--text-muted) !important;
 }}
 
-/* Alerts: keep dark-friendly */
 [data-testid="stAlert"] {{
   background: var(--surface) !important;
   border: 1px solid var(--border) !important;
   border-radius: 8px !important;
 }}
 
-/* ─── Confidence tags (carried from old render_md, restyled) ───────── */
 .conf-tag {{
   display: inline-block;
   font-size: 0.68em;
@@ -202,11 +248,11 @@ hr, [data-testid="stDivider"] {{
   cursor: help;
   position: relative;
 }}
-.conf-hc  {{ color: var(--hc);  background: rgba(63,185,80,0.15); }}
-.conf-mc  {{ color: var(--mc);  background: rgba(210,153,34,0.15); }}
-.conf-lc  {{ color: var(--lc);  background: rgba(248,81,73,0.15); }}
-.conf-gap {{ color: var(--gap); background: rgba(163,113,247,0.15); }}
-.conf-src {{ color: var(--src); background: rgba(88,166,255,0.15); }}
+.conf-hc  {{ color: var(--hc);  background: rgba(44,95,78,0.12); }}
+.conf-mc  {{ color: var(--mc);  background: rgba(184,135,11,0.12); }}
+.conf-lc  {{ color: var(--lc);  background: rgba(168,50,28,0.12); }}
+.conf-gap {{ color: var(--gap); background: rgba(91,78,122,0.12); }}
+.conf-src {{ color: var(--src); background: rgba(59,90,128,0.12); }}
 .conf-tag .conf-tip {{
   visibility: hidden;
   opacity: 0;
@@ -229,7 +275,6 @@ hr, [data-testid="stDivider"] {{
 }}
 .conf-tag:hover .conf-tip {{ visibility: visible; opacity: 1; }}
 
-/* ─── Stepper ──────────────────────────────────────────────────────── */
 .stepper {{
   display: flex;
   align-items: center;
@@ -237,51 +282,26 @@ hr, [data-testid="stDivider"] {{
   gap: 0;
   padding: 12px 0 18px;
 }}
-.stepper-node {{
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: 4px;
-}}
+.stepper-node {{ display: flex; flex-direction: column; align-items: center; gap: 4px; }}
 .stepper-circle {{
-  width: 32px;
-  height: 32px;
-  border-radius: 50%;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  font-size: 13px;
-  font-weight: 700;
+  width: 32px; height: 32px; border-radius: 50%;
+  display: flex; align-items: center; justify-content: center;
+  font-size: 13px; font-weight: 700;
   border: 2px solid var(--border);
   background: transparent;
   color: var(--text-dim);
 }}
-.stepper-circle.done {{
-  background: var(--accent);
-  color: var(--bg);
-  border-color: var(--accent);
-}}
+.stepper-circle.done {{ background: var(--accent); color: var(--on-accent); border-color: var(--accent); }}
 .stepper-circle.active {{
-  border-color: var(--accent);
-  color: var(--accent);
-  box-shadow: 0 0 10px rgba(0,212,170,0.35);
+  border-color: var(--accent); color: var(--accent);
+  box-shadow: 0 0 10px rgba(44,95,78,0.25);
 }}
-.stepper-label {{
-  font-size: 11px;
-  font-weight: 600;
-  color: var(--text-dim);
-}}
+.stepper-label {{ font-size: 11px; font-weight: 600; color: var(--text-dim); }}
 .stepper-label.on {{ color: var(--accent); }}
 .stepper-sub {{ font-size: 10px; color: var(--text-muted); }}
-.stepper-bar {{
-  width: 80px;
-  height: 2px;
-  background: var(--border);
-  margin: 0 6px 18px;
-}}
+.stepper-bar {{ width: 80px; height: 2px; background: var(--border); margin: 0 6px 18px; }}
 .stepper-bar.done {{ background: var(--accent); }}
 
-/* ─── Stacked agent cards ──────────────────────────────────────────── */
 .agent-card {{
   background: var(--surface);
   border: 1px solid var(--border);
@@ -291,14 +311,10 @@ hr, [data-testid="stDivider"] {{
   overflow: hidden;
 }}
 .agent-card.empty {{ opacity: 0.5; }}
-/* Collapsible card: summary is the header toggle */
-details.agent-card > summary.agent-card-head {{
-  cursor: pointer;
-  list-style: none;
-}}
+details.agent-card > summary.agent-card-head {{ cursor: pointer; list-style: none; }}
 details.agent-card > summary.agent-card-head::-webkit-details-marker {{ display: none; }}
 details.agent-card > summary.agent-card-head::after {{
-  content: "▼";
+  content: "\u25BC";
   font-size: 9px;
   color: var(--text-muted);
   transition: transform 0.15s;
@@ -306,62 +322,39 @@ details.agent-card > summary.agent-card-head::after {{
 details.agent-card:not([open]) > summary.agent-card-head::after {{
   transform: rotate(-90deg);
 }}
-details.agent-card:not([open]) {{
-  border-bottom: 1px solid var(--border);
-}}
+details.agent-card:not([open]) {{ border-bottom: 1px solid var(--border); }}
 .agent-card-head {{
   padding: 14px 16px;
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
+  display: flex; justify-content: space-between; align-items: center;
 }}
-.agent-card-title {{
-  font-weight: 600;
-  font-size: 14px;
-  color: var(--text);
-}}
-.agent-card-tally {{
-  display: flex;
-  align-items: center;
-  gap: 6px;
-}}
+.agent-card-title {{ font-weight: 600; font-size: 14px; color: var(--text); }}
+.agent-card-tally {{ display: flex; align-items: center; gap: 6px; }}
 .tally {{
-  font-size: 10px;
-  font-weight: 700;
-  padding: 2px 7px;
-  border-radius: 3px;
+  font-size: 10px; font-weight: 700;
+  padding: 2px 7px; border-radius: 3px;
   letter-spacing: 0.03em;
 }}
-.tally-hc  {{ color: var(--hc);  background: rgba(63,185,80,0.15); }}
-.tally-mc  {{ color: var(--mc);  background: rgba(210,153,34,0.15); }}
-.tally-lc  {{ color: var(--lc);  background: rgba(248,81,73,0.15); }}
-.tally-gap {{ color: var(--gap); background: rgba(163,113,247,0.15); }}
+.tally-hc  {{ color: var(--hc);  background: rgba(44,95,78,0.12); }}
+.tally-mc  {{ color: var(--mc);  background: rgba(184,135,11,0.12); }}
+.tally-lc  {{ color: var(--lc);  background: rgba(168,50,28,0.12); }}
+.tally-gap {{ color: var(--gap); background: rgba(91,78,122,0.12); }}
 .empty-pill {{
-  font-size: 11px;
-  color: var(--text-dim);
+  font-size: 11px; color: var(--text-dim);
   background: var(--border-soft);
-  padding: 2px 8px;
-  border-radius: 3px;
+  padding: 2px 8px; border-radius: 3px;
 }}
 .exec-summary {{
   margin: 0 16px 14px;
-  background: rgba(0,212,170,0.06);
-  border: 1px solid rgba(0,212,170,0.20);
+  background: {c['exec_bg']};
+  border: 1px solid {c['exec_border']};
   border-radius: 6px;
   padding: 12px 14px;
 }}
 .exec-summary-label {{
-  font-size: 10px;
-  color: var(--accent);
-  font-weight: 700;
-  letter-spacing: 0.06em;
-  margin-bottom: 5px;
+  font-size: 10px; color: var(--accent); font-weight: 700;
+  letter-spacing: 0.06em; margin-bottom: 5px;
 }}
-.exec-summary-body {{
-  font-size: 13px;
-  color: #c9d1d9;
-  line-height: 1.6;
-}}
+.exec-summary-body {{ font-size: 13px; color: var(--body-text); line-height: 1.6; }}
 details.section {{
   margin: 0 16px 8px;
   background: var(--bg);
@@ -370,83 +363,66 @@ details.section {{
   overflow: hidden;
 }}
 details.section[open] > summary {{
-  background: rgba(255,255,255,0.02);
+  background: {c['section_open_bg']};
   border-bottom: 1px solid var(--border-soft);
 }}
 details.section > summary {{
-  padding: 10px 14px;
-  cursor: pointer;
-  font-weight: 600;
-  font-size: 13px;
-  color: var(--text);
-  list-style: none;
-  display: flex;
-  align-items: center;
-  gap: 8px;
+  padding: 10px 14px; cursor: pointer;
+  font-weight: 600; font-size: 13px; color: var(--text);
+  list-style: none; display: flex; align-items: center; gap: 8px;
 }}
 details.section > summary::-webkit-details-marker {{ display: none; }}
 details.section > summary::before {{
-  content: "▶";
-  font-size: 9px;
-  color: var(--text-muted);
+  content: "\u25B6"; font-size: 9px; color: var(--text-muted);
   transition: transform 0.15s;
 }}
 details.section[open] > summary::before {{ transform: rotate(90deg); }}
 .section-body {{
-  padding: 12px 14px;
-  font-size: 13px;
-  color: #c9d1d9;
-  line-height: 1.65;
+  padding: 12px 14px; font-size: 13px; color: var(--body-text); line-height: 1.65;
 }}
 .section-body h3 {{
-  font-size: 13px !important;
-  font-weight: 700;
-  color: var(--text) !important;
-  margin: 14px 0 6px !important;
+  font-size: 13px !important; font-weight: 700;
+  color: var(--text) !important; margin: 14px 0 6px !important;
 }}
 .section-body h4 {{
-  font-size: 12px !important;
-  font-weight: 600;
-  color: var(--text-muted) !important;
-  margin: 10px 0 4px !important;
-  text-transform: uppercase;
-  letter-spacing: 0.04em;
+  font-size: 12px !important; font-weight: 600;
+  color: var(--text-muted) !important; margin: 10px 0 4px !important;
+  text-transform: uppercase; letter-spacing: 0.04em;
 }}
 .section-body p {{ margin: 0 0 8px; }}
 .section-body ul, .section-body ol {{ margin: 4px 0 8px; padding-left: 22px; }}
 .section-body li {{ margin-bottom: 3px; }}
 .section-body table {{
-  width: 100%;
-  border-collapse: collapse;
-  margin: 10px 0;
-  font-size: 12px;
+  width: 100%; border-collapse: collapse; margin: 10px 0; font-size: 12px;
 }}
 .section-body th, .section-body td {{
-  padding: 6px 10px;
-  border: 1px solid var(--border-soft);
-  text-align: left;
+  padding: 6px 10px; border: 1px solid var(--border-soft); text-align: left;
 }}
 .section-body th {{
-  background: var(--surface-alt);
-  font-weight: 600;
-  color: var(--text);
+  background: var(--surface-alt); font-weight: 600; color: var(--text);
 }}
 .section-body code {{
   background: var(--surface-alt);
-  padding: 1px 5px;
-  border-radius: 3px;
-  font-size: 0.92em;
+  padding: 1px 5px; border-radius: 3px; font-size: 0.92em;
 }}
 .section-body blockquote {{
   border-left: 3px solid var(--accent);
-  margin: 8px 0;
-  padding: 4px 12px;
-  color: var(--text-muted);
+  margin: 8px 0; padding: 4px 12px; color: var(--text-muted);
 }}
 </style>
 """
 
 
 def inject_theme() -> None:
-    """Inject the dark theme CSS. Call once near the top of the app."""
-    st.markdown(_CSS, unsafe_allow_html=True)
+    """Inject the active theme's CSS. Call once near the top of each page."""
+    st.session_state.setdefault("theme", "light")
+    st.markdown(_build_css(_current_palette()), unsafe_allow_html=True)
+
+
+def render_theme_toggle(key: str = "theme_toggle") -> None:
+    """Render a small button that flips light ↔ dark for this session."""
+    mode = st.session_state.get("theme", "light")
+    label = "\u263E Dark" if mode == "light" else "\u2600 Light"
+    if st.button(label, key=key, help="Toggle theme"):
+        st.session_state["theme"] = "dark" if mode == "light" else "light"
+        st.rerun()
