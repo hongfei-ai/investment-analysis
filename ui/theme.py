@@ -15,23 +15,23 @@ LIGHT = {
     "bg":          "#FAF8F3",   # warm paper
     "surface":     "#FFFFFF",
     "surface_alt": "#F2EFE8",
-    "border":      "#E3DFD4",
-    "border_soft": "#EDEAE1",
+    "border":      "#C9C4B5",   # darker so inputs and panels stand out on white
+    "border_soft": "#E3DFD4",
     "text":        "#1A1A1A",
-    "text_muted":  "#6B6B6B",
-    "text_dim":    "#A0A0A0",
-    "accent":      "#2C5F4E",   # forest green
-    "accent_hover": "#224B3D",
+    "text_muted":  "#5A5A5A",
+    "text_dim":    "#9A9A9A",
+    "accent":      "#003DA5",   # primary action (January blue)
+    "accent_hover": "#002B7A",
     "on_accent":   "#FFFFFF",
-    "hc":          "#2C5F4E",
-    "mc":          "#B8870B",
+    "hc":          "#1F6B4A",
+    "mc":          "#A57A08",
     "lc":          "#A8321C",
     "gap":         "#5B4E7A",
     "src":         "#3B5A80",
-    "exec_bg":     "rgba(44,95,78,0.06)",
-    "exec_border": "rgba(44,95,78,0.20)",
+    "exec_bg":     "rgba(0,61,165,0.06)",
+    "exec_border": "rgba(0,61,165,0.20)",
     "body_text":   "#2A2A2A",
-    "section_open_bg": "rgba(0,0,0,0.02)",
+    "section_open_bg": "rgba(0,0,0,0.03)",
 }
 
 DARK = {
@@ -164,6 +164,10 @@ p, li, span, label, div {{ color: var(--text); }}
   border-radius: 6px !important;
   color: var(--text) !important;
 }}
+.stTextInput input::placeholder, .stTextArea textarea::placeholder {{
+  color: var(--text-dim) !important;
+  opacity: 1;
+}}
 .stTextInput input:focus, .stTextArea textarea:focus, .stNumberInput input:focus {{
   border-color: var(--accent) !important;
   box-shadow: 0 0 0 1px var(--accent) !important;
@@ -171,11 +175,20 @@ p, li, span, label, div {{ color: var(--text); }}
 }}
 .stTextInput label, .stTextArea label, .stNumberInput label,
 .stSelectbox label, .stRadio label, .stFileUploader label {{
-  color: var(--text-muted) !important;
+  color: var(--text) !important;
   font-size: 12px !important;
-  font-weight: 500 !important;
+  font-weight: 600 !important;
   text-transform: uppercase;
   letter-spacing: 0.04em;
+}}
+
+/* Dialog: tint inputs so they stand out against the white modal surface */
+[data-testid="stModal"] .stTextInput input,
+[data-testid="stModal"] .stTextArea textarea,
+div[role="dialog"] .stTextInput input,
+div[role="dialog"] .stTextArea textarea {{
+  background: var(--bg) !important;
+  border: 1.5px solid var(--border) !important;
 }}
 
 .stSelectbox div[data-baseweb="select"] > div {{
@@ -422,7 +435,7 @@ def inject_theme() -> None:
 def render_theme_toggle(key: str = "theme_toggle") -> None:
     """Render a small button that flips light ↔ dark for this session."""
     mode = st.session_state.get("theme", "light")
-    label = "\u263E Dark" if mode == "light" else "\u2600 Light"
-    if st.button(label, key=key, help="Toggle theme"):
+    label = "Dark mode" if mode == "light" else "Light mode"
+    if st.button(label, key=key, help="Toggle theme", use_container_width=True):
         st.session_state["theme"] = "dark" if mode == "light" else "light"
         st.rerun()
