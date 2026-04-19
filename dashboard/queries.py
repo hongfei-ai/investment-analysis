@@ -204,70 +204,43 @@ def filter_deals(
     *,
     owner_email: str | None = None,
     my_email: str | None = None,
-    stages: Iterable[str] | None = None,
     priorities: Iterable[str] | None = None,
-    sector: str | None = None,
-    exclude_terminal: bool = False,
 ) -> list[DealSummary]:
     """Apply dashboard filters to a list of DealSummary.
 
     `owner_email` matches deals whose owner is that email (case-insensitive).
     `my_email` is the "My deals" filter: owner OR collaborator.
-    `stages` / `priorities` are any-of whitelists (None = all allowed).
+    `priorities` is an any-of whitelist (None = all allowed).
     """
-    want_stages = {s.lower() for s in stages} if stages else None
     want_priorities = {p.upper() for p in priorities} if priorities else None
     owner_lc = owner_email.lower() if owner_email else None
     my_lc = my_email.lower() if my_email else None
-    sector_lc = sector.lower() if sector else None
 
     out: list[DealSummary] = []
     for s in summaries:
-        if exclude_terminal and s.is_terminal:
-            continue
         if owner_lc and (s.owner_email or "").lower() != owner_lc:
             continue
         if my_lc:
             collaborators_lc = {c.lower() for c in s.collaborators}
             if (s.owner_email or "").lower() != my_lc and my_lc not in collaborators_lc:
                 continue
-        if want_stages and s.deal_stage.lower() not in want_stages:
-            continue
         if want_priorities:
             p = (s.priority or "").upper()
             if p not in want_priorities:
                 continue
-        if sector_lc and (s.sector or "").lower() != sector_lc:
-            continue
         out.append(s)
     return out
 
 
-def summary_tiles(summaries: Iterable[DealSummary], now: datetime | None = None) -> dict:
+def summary_tiles(summaries: Iterable[DealSummary]) -> dict:
     """Aggregate counts for the top-of-dashboard tile row.
 
-    Returns a dict with keys:
-      total_active, in_diligence, at_ic, added_this_week, stalled
+    Returns a dict with two keys:
+      total_deals      — every deal in DEALS_DIR, regardless of stage
+      total_agents_run — sum of agents_done across all deals
     """
     summaries = list(summaries)
-    ref = now or datetime.now(timezone.utc)
-    if ref.tzinfo is None:
-        ref = ref.replace(tzinfo=timezone.utc)
-
-    active = [s for s in summaries if not s.is_terminal]
-    in_diligence = sum(1 for s in active if s.deal_stage == "diligence")
-    at_ic = sum(1 for s in active if s.deal_stage in ("ic", "term_sheet"))
-
-    added_this_week = 0
-    for s in summaries:
-        created = _iso_to_datetime(s.date_created)
-        if created and (ref - created).total_seconds() <= 7 * 86400:
-            added_this_week += 1
-
     return {
-        "total_active": len(active),
-        "in_diligence": in_diligence,
-        "at_ic": at_ic,
-        "added_this_week": added_this_week,
-        "stalled": len(stalled_deals(summaries, threshold_days=14, now=ref)),
+        "total_deals": len(summaries),
+        "total_agents_run": sum(s.agents_done for s in summaries),
     }

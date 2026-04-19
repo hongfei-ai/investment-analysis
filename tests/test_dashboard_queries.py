@@ -145,30 +145,15 @@ def test_filter_my_deals_covers_owner_and_collaborator():
     assert {s.deal_id for s in out} == {"Acme", "Beta"}
 
 
-def test_filter_exclude_terminal():
-    out = queries.filter_deals(_summaries_for_test(), exclude_terminal=True)
-    assert {s.deal_id for s in out} == {"Acme", "Beta", "Epsilon"}
-
-
-def test_filter_by_stage_whitelist():
-    out = queries.filter_deals(_summaries_for_test(), stages=["diligence", "ic"])
-    assert {s.deal_id for s in out} == {"Acme", "Beta"}
-
-
 def test_filter_by_priority():
     out = queries.filter_deals(_summaries_for_test(), priorities=["H"])
     assert {s.deal_id for s in out} == {"Acme", "Beta"}
 
 
-def test_filter_by_sector_case_insensitive():
-    out = queries.filter_deals(_summaries_for_test(), sector="fintech")
-    assert {s.deal_id for s in out} == {"Acme"}
-
-
 def test_filter_combines_criteria():
     out = queries.filter_deals(
         _summaries_for_test(),
-        exclude_terminal=True,
+        my_email="ada@example.com",
         priorities=["H"],
     )
     assert {s.deal_id for s in out} == {"Acme", "Beta"}
@@ -205,28 +190,26 @@ def test_stalled_skips_deals_with_missing_timestamp():
 
 # ─── summary_tiles ───────────────────────────────────────────────────────────
 
-def test_summary_tiles_counts(deals_dir):
-    # Bypass atomic_save_deal here because it always stamps `updated_at` to
-    # wall-clock now — we need to simulate historical timestamps.
-    import json
-    now = datetime(2026, 4, 18, tzinfo=timezone.utc)
+def test_summary_tiles_counts_deals_and_agents_run(deals_dir):
+    # A: 2 agents done. B: 0 agents done. C: 9 agents done. Total = 3 deals, 11 agents.
+    a = _make_deal("A")
+    a["pre_call"]["research_output"] = "brief"
+    a["diligence"]["tracker"] = "P1s"
+    _save(a)
 
-    def write(name, stage, created_days_ago=1, updated_days_ago=1):
-        d = _make_deal(name)
-        d["deal_stage"] = stage
-        d["date_created"] = (now - timedelta(days=created_days_ago)).isoformat()
-        d["updated_at"] = (now - timedelta(days=updated_days_ago)).isoformat()
-        (deals_dir / f"{name}.json").write_text(json.dumps(d))
+    _save(_make_deal("B"))
 
-    write("A", "diligence", updated_days_ago=1)
-    write("B", "diligence", updated_days_ago=30)                          # stalled
-    write("C", "ic",        updated_days_ago=1, created_days_ago=10)      # not this week
-    write("D", "term_sheet", updated_days_ago=0, created_days_ago=0)      # this week
-    write("E", "passed",    updated_days_ago=1)                           # terminal
+    c = _make_deal("C")
+    c["pre_call"]["research_output"] = "brief"
+    c["diligence"]["tracker"] = "P1s"
+    c["diligence"]["founder_diligence"] = "notes"
+    c["diligence"]["market_diligence"] = "notes"
+    c["diligence"]["reference_check"] = "notes"
+    c["diligence"]["thesis_check"] = "notes"
+    c["ic_preparation"]["pre_mortem"] = "notes"
+    c["ic_preparation"]["ic_simulation"] = "notes"
+    c["ic_preparation"]["ic_memo"] = "memo"
+    _save(c)
 
-    tiles = queries.summary_tiles(queries.scan_deals(), now=now)
-    assert tiles["total_active"] == 4        # A, B, C, D
-    assert tiles["in_diligence"] == 2        # A, B
-    assert tiles["at_ic"] == 2               # C, D
-    assert tiles["added_this_week"] == 4     # A, B, D, E all created 0-1d ago; C at day 10 excluded
-    assert tiles["stalled"] == 1             # B
+    tiles = queries.summary_tiles(queries.scan_deals())
+    assert tiles == {"total_deals": 3, "total_agents_run": 11}
