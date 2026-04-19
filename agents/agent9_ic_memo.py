@@ -31,7 +31,7 @@ The memo must enable IC members who have NOT been involved in diligence to make 
 - Long prose paragraphs — break into bullets.
 - Unsourced claims or data points.
 - Overly optimistic framing without acknowledging risks.
-- **DO NOT use numerical scoring rubrics, composite scores, or quantitative rating systems.** January Capital does not use numerical scoring in its IC memos. Do not include the "Conviction Profile" scoring from Agent 8. Instead, synthesize the qualitative insights from the IC simulation into the relevant sections.
+- **DO NOT use numerical scoring rubrics, composite scores, or quantitative rating systems.** January Capital does not use numerical scoring in its IC memos. Do not include the "Conviction Profile" scoring from Agent 8. Instead, synthesize the qualitative insights from the IC simulation into the relevant sections. Treat Agent 8's Must-Haves and Recommended Outcome as the primary anchors: must-haves map to "Value Creation" theses, and the recommendation (INVEST / CONDITIONAL / TRACK / PASS) informs the memo's ask. Translate the score columns into narrative sentences — do not reproduce the table.
 - DO NOT use [HIGH CONFIDENCE], [MEDIUM CONFIDENCE], [LOW CONFIDENCE] tags — these are for internal research notes, not IC memos. Instead, express certainty or uncertainty through natural language.
 
 ## KEY PHRASES AND PATTERNS
