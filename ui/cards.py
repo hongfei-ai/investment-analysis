@@ -92,13 +92,44 @@ def _split_h3_subsections(body: str) -> list[tuple[str | None, str]]:
 
 # ─── Diligence title detection ───────────────────────────────────────
 
-_DILIGENCE_TITLE_HINTS = ("diligence:", "ic update:", "diligence tracker:")
+_DILIGENCE_TITLE_HINTS = (
+    "diligence:",
+    "ic update:",
+    "diligence tracker:",
+    "research brief:",
+    "pre-call research brief:",
+    "pre-mortem:",
+    "ic simulation:",
+    "traction intelligence:",
+    "thesis check:",
+    "ic memo:",
+)
 
 
 def _is_diligence_title(title: str) -> bool:
     """Check if a section title is a card-level diligence header, not content."""
     t = title.strip().lower()
     return any(hint in t for hint in _DILIGENCE_TITLE_HINTS)
+
+
+# ─── Numbered-major heading detection ────────────────────────────────
+
+_NUMBERED_MAJOR_RE = re.compile(r"^\d+\.\s+\S")
+
+
+def _is_numbered_major(title: str) -> bool:
+    """True for titles like '1. Foo', '10. Bar' — the user-facing 'section' level.
+
+    Such titles are rendered as a plain heading outside any collapsible box,
+    and their H3 children (e.g. '### 1.1 Baz') become top-level collapsibles.
+    Subtitles with a decimal (like '1.1 Career Arc') are NOT matched — those
+    are still rendered as normal collapsibles.
+    """
+    t = title.strip()
+    # Reject '1.1 ...' style (two dots before whitespace)
+    if re.match(r"^\d+\.\d", t):
+        return False
+    return bool(_NUMBERED_MAJOR_RE.match(t))
 
 
 # ─── Card rendering ───────────────────────────────────────────────────────
@@ -158,8 +189,40 @@ def _filled_card(
 
         # Split H2 section body into H3 sub-sections for nested collapsibility
         h3_subs = _split_h3_subsections(section.body)
+        has_h3_structure = (
+            len(h3_subs) > 1 or (len(h3_subs) == 1 and h3_subs[0][0] is not None)
+        )
 
-        if len(h3_subs) > 1 or (len(h3_subs) == 1 and h3_subs[0][0] is not None):
+        # Numbered-major section ("1. Foo", "2. Bar", ...): render the title
+        # as a plain heading and promote the H3 children to top-level
+        # collapsibles. This gives a two-tier visual hierarchy without
+        # burying subsections inside a redundant outer <details>.
+        if _is_numbered_major(section.title) and has_h3_structure:
+            sections_html_parts.append(
+                f'<h2 class="plain-section">{html.escape(section.title)}</h2>'
+            )
+            for j, (sub_title, sub_body) in enumerate(h3_subs):
+                if sub_title is None:
+                    if sub_body.strip():
+                        sections_html_parts.append(
+                            f'<div class="section-body">'
+                            f'{_md_to_html(sub_body, with_tags=not skip_confidence)}'
+                            f'</div>'
+                        )
+                    continue
+                if parsed.exec_summary and _looks_like_exec_summary(sub_title):
+                    continue
+                sub_body_html = _md_to_html(sub_body, with_tags=not skip_confidence)
+                sub_open = " open" if (initially_open and j <= 1) else ""
+                sections_html_parts.append(
+                    f'<details class="section"{sub_open}>'
+                    f'<summary>{html.escape(sub_title)}</summary>'
+                    f'<div class="section-body">{sub_body_html}</div>'
+                    f'</details>'
+                )
+            continue
+
+        if has_h3_structure:
             # Has H3 structure — render each as a nested collapsible <details>
             inner_parts: list[str] = []
             for j, (sub_title, sub_body) in enumerate(h3_subs):

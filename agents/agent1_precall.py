@@ -194,72 +194,140 @@ Initial Notes: {inputs.get('initial_notes', '')}
 
 {"Pitch Deck Content:\\n" + deck_text if deck_text else "No pitch deck provided."}
 
-Produce the full Pre-Call Research Brief following this structure:
+Produce the full Pre-Call Research Brief following this structure exactly.
+
+Heading hierarchy — strict, and the UI renderer depends on it:
+- ONE `##` (H2) at the top: the card title line shown below.
+- `### Executive Summary` — H3 for the executive summary (detected and lifted to a badge).
+- `## N. Title` — H2 for each major numbered section (1 through 10). The
+  renderer turns these into plain large headings that sit OUTSIDE any
+  collapsible box.
+- `### N.N Subtitle` — H3 for every subsection. Each H3 becomes a
+  top-level collapsible block under its parent `## N. Title`.
+- Do NOT use `#` (H1). Do NOT use `####` (H4). Every subsection must use
+  exactly `###`; every major section must use exactly `##`.
 
 ## PRE-CALL RESEARCH BRIEF: {inputs['founder_name']} — {deal['company_name']}
 
-### Executive Summary (3-5 sentences)
-Synthesize the most investment-relevant takeaways. Lead with your overall read on the founder, not a bio summary.
+### Executive Summary
+3-5 sentences synthesizing the most investment-relevant takeaways. Lead with your overall read on the founder, not a bio summary.
 
-### 1. Founder Profile & Career Trajectory
-1.1 Career Arc (contextualized — not titles and dates, but the STORY of their progression. What choices did they make and what do those choices reveal?)
-1.2 Rate of Progression Assessment (how fast have they grown relative to peers?)
-1.3 Spikiness & Unique Advantage (what is genuinely unusual about this founder? What unfair insight or access do they have?)
-1.4 Technical & Product Depth (evidence-based — repos, publications, patents, shipping history)
-1.5 Network & Ecosystem Position (who do they know, who vouches for them, where are they embedded?)
-1.6 Talent Magnetism (who have they attracted to join, and what did those people give up?)
-1.7 Founder Pattern Match Score (1-5 with detailed reasoning, referencing specific evidence)
+## 1. Founder Profile & Career Trajectory
 
-### 2. Public Voice & Thought Leadership
-2.1 LinkedIn Activity — top 3-5 most REVEALING posts (not most popular — most revealing of how they think)
-2.2 X/Twitter Activity — top 3-5 most revealing posts or threads
-2.3 Long-Form Content (blog posts, Substack, Medium)
-2.4 Podcast / Conference Appearances (with specific timestamps or quotes if notable)
-2.5 Technical Contributions (GitHub activity, HN comments, open-source work, Product Hunt launches)
-2.6 Narrative Consistency Assessment (is their story consistent across channels, or are there gaps/contradictions?)
+### 1.1 Career Arc
+Contextualized — not titles and dates, but the STORY of their progression. What choices did they make and what do those choices reveal?
 
-### 3. Venture Hypothesis
-3.1 What They Are Likely Building (synthesized from all sources — deck, public content, domain context)
-3.2 Market Context (size the RELEVANT market, not the inflated TAM. Who else is building here? What's the timing like?)
-3.3 Thesis Alignment with January Capital (explicit mapping to active thesis themes, if any)
+### 1.2 Rate of Progression Assessment
+How fast have they grown relative to peers?
 
-### 4. Pitch Deck Assessment (if deck provided)
-4.1 Problem Framing Quality
-4.2 Solution Clarity
-4.3 Go-to-Market Credibility (especially for their target APAC market)
-4.4 Competitive Positioning Honesty
-4.5 Business Model & Ask Appropriateness
-4.6 What's Missing from the Deck
+### 1.3 Spikiness & Unique Advantage
+What is genuinely unusual about this founder? What unfair insight or access do they have?
 
-### 5. Red Flag Screening
+### 1.4 Technical & Product Depth
+Evidence-based — repos, publications, patents, shipping history.
+
+### 1.5 Network & Ecosystem Position
+Who do they know, who vouches for them, where are they embedded?
+
+### 1.6 Talent Magnetism
+Who have they attracted to join, and what did those people give up?
+
+### 1.7 Founder Pattern Match Score
+1-5 with detailed reasoning, referencing specific evidence.
+
+## 2. Public Voice & Thought Leadership
+
+### 2.1 LinkedIn Activity
+Top 3-5 most REVEALING posts (not most popular — most revealing of how they think).
+
+### 2.2 X/Twitter Activity
+Top 3-5 most revealing posts or threads.
+
+### 2.3 Long-Form Content
+Blog posts, Substack, Medium.
+
+### 2.4 Podcast / Conference Appearances
+With specific timestamps or quotes if notable.
+
+### 2.5 Technical Contributions
+GitHub activity, HN comments, open-source work, Product Hunt launches.
+
+### 2.6 Narrative Consistency Assessment
+Is their story consistent across channels, or are there gaps/contradictions?
+
+## 3. Venture Hypothesis
+
+### 3.1 What They Are Likely Building
+Synthesized from all sources — deck, public content, domain context.
+
+### 3.2 Market Context
+Size the RELEVANT market, not the inflated TAM. Who else is building here? What's the timing like?
+
+### 3.3 Thesis Alignment with January Capital
+Explicit mapping to active thesis themes, if any.
+
+## 4. Pitch Deck Assessment
+
+Omit this entire section if no deck was provided.
+
+### 4.1 Problem Framing Quality
+
+### 4.2 Solution Clarity
+
+### 4.3 Go-to-Market Credibility
+Especially for their target market.
+
+### 4.4 Competitive Positioning Honesty
+
+### 4.5 Business Model & Ask Appropriateness
+
+### 4.6 What's Missing from the Deck
+
+## 5. Red Flag Screening
+
 List any red flags found, with evidence. If none found, state that explicitly.
 
-### 6. Execution Timeline
-Construct a rough chronological timeline of the founder's key moves related to this venture:
-- When incorporated, when first hire, when first product shipped, when first customer, when first revenue (if applicable)
-- Flag whether this pace is fast, normal, or slow for the space and geography
+## 6. Execution Timeline
 
-### 7. What We Already Know vs. What We Can Only Learn on the Call
-7.1 Key questions ALREADY ANSWERED through research (with answers)
-7.2 Key questions that can ONLY be answered on the call
+Chronological timeline of the founder's key moves related to this venture:
+- When incorporated, when first hire, when first product shipped, when first customer, when first revenue (if applicable).
+- Flag whether this pace is fast, normal, or slow for the space and geography.
 
-### 8. Critical Questions for the Call
+## 7. What We Already Know vs. What We Can Only Learn on the Call
+
+### 7.1 Key Questions Already Answered Through Research
+With answers.
+
+### 7.2 Key Questions That Can Only Be Answered on the Call
+
+## 8. Critical Questions for the Call
+
 10-12 questions organized by theme. For EACH question provide:
-- The question itself (phrased conversationally)
-- WHY it matters (the hypothesis being tested)
-- What a STRONG answer looks like
-- What a WEAK answer looks like
+- The question itself (phrased conversationally).
+- WHY it matters (the hypothesis being tested).
+- What a STRONG answer looks like.
+- What a WEAK answer looks like.
 
-Themes:
-- Vision & Ambition Calibration (2-3 questions)
-- Founder-Market Fit & Unique Insight (2-3 questions)
-- Product / Technical Depth (2-3 questions)
-- Market & Go-to-Market (2 questions)
-- Execution & Resilience (2 questions)
+### 8.1 Vision & Ambition Calibration
+2-3 questions.
 
-### 9. Potential Deal-Breakers to Test (3-5)
-For each: what the deal-breaker is, how to test it on the call, and what would confirm vs. disconfirm it.
+### 8.2 Founder-Market Fit & Unique Insight
+2-3 questions.
 
-### 10. Raw Data Appendix
+### 8.3 Product / Technical Depth
+2-3 questions.
+
+### 8.4 Market & Go-to-Market
+2 questions.
+
+### 8.5 Execution & Resilience
+2 questions.
+
+## 9. Potential Deal-Breakers to Test
+
+3-5 items. For each: what the deal-breaker is, how to test it on the call, and what would confirm vs. disconfirm it.
+
+## 10. Raw Data Appendix
+
 All source URLs, dates accessed, and any raw data that didn't fit elsewhere but may be useful for reference.
 """
