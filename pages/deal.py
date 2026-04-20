@@ -392,7 +392,7 @@ def render_left_status() -> None:
 
 _H3_RE = re.compile(r"^###\s+(.+?)\s*$", re.MULTILINE)
 
-MAX_BRIEF_SECTIONS = 15  # pre-allocate this many slots
+MAX_BRIEF_SECTIONS = 50  # pre-allocate this many slots (template has ~30 H3 subs)
 
 
 def _split_by_h3(text: str) -> list[tuple[str, str]]:
@@ -509,9 +509,14 @@ def stream_sectioned_brief(deal_name: str) -> None:
     cfg = AGENT_REGISTRY["agent1_precall"]
     deal = load_deal(deal_name)
 
-    # Pre-allocate empty placeholder slots
+    # Pre-allocate empty placeholder slots, then immediately clear each one
+    # so any DOM content from a prior render_sectioned_brief() pass is
+    # replaced with an explicitly-empty placeholder before streaming starts.
     slots = [st.empty() for _ in range(MAX_BRIEF_SECTIONS)]
-    finalized = [False] * MAX_BRIEF_SECTIONS  # track which slots are done
+    for slot in slots:
+        slot.empty()
+    finalized = [False] * MAX_BRIEF_SECTIONS
+    max_seen = 0  # highest section count observed so far
 
     accumulated = ""
     try:
@@ -523,38 +528,43 @@ def stream_sectioned_brief(deal_name: str) -> None:
         for chunk in generator:
             accumulated += chunk
             sections = _split_by_h3(accumulated)
+            n = min(len(sections), MAX_BRIEF_SECTIONS)
 
-            for i, (title, body) in enumerate(sections):
-                if i >= MAX_BRIEF_SECTIONS:
-                    break
+            for i, (title, body) in enumerate(sections[:n]):
                 is_last = (i == len(sections) - 1)
 
                 if is_last:
-                    # Active section — update on every chunk
                     slots[i].markdown(
                         _section_html(title, body, open=True, streaming=True),
                         unsafe_allow_html=True,
                     )
                 elif not finalized[i]:
-                    # Just completed — render once, mark done
                     slots[i].markdown(
                         _section_html(title, body, open=(i == 0)),
                         unsafe_allow_html=True,
                     )
                     finalized[i] = True
 
-        # Streaming done — finalize the last section
+            # Keep any beyond-n slots empty. `st.empty()` here replaces any
+            # stale content (e.g. titles from the prior render or a previous
+            # chunk that had more sections for some reason).
+            if n > max_seen:
+                max_seen = n
+            for i in range(n, MAX_BRIEF_SECTIONS):
+                slots[i].empty()
+
+        # Streaming done — finalize the last section and clear trailing slots
         sections = _split_by_h3(accumulated)
-        for i, (title, body) in enumerate(sections):
-            if i >= MAX_BRIEF_SECTIONS:
-                break
+        n = min(len(sections), MAX_BRIEF_SECTIONS)
+        for i, (title, body) in enumerate(sections[:n]):
             if not finalized[i]:
                 slots[i].markdown(
                     _section_html(title, body, open=(i == 0)),
                     unsafe_allow_html=True,
                 )
+        for i in range(n, MAX_BRIEF_SECTIONS):
+            slots[i].empty()
 
-        # Save
         deal[cfg["section"]][cfg["field"]] = accumulated
         save_deal(deal, _user())
         save_output(deal_name, "agent1_precall", accumulated, _user())
