@@ -134,6 +134,18 @@ h1, h2, h3, h4, h5 {{
   letter-spacing: -0.01em;
 }}
 
+/* Plain numbered section heading — '1. Foo' rendered as a major divider,
+   NOT a collapsible box. Used by ui/cards.py when a section title matches
+   '^\\d+\\.\\s+'. */
+h2.plain-section {{
+  margin: 22px 16px 10px;
+  padding: 0 0 6px;
+  font-size: 22px;
+  font-weight: 700;
+  color: var(--text) !important;
+  border-bottom: 1px solid var(--border-soft);
+}}
+
 p, li, span, label, div {{ color: var(--text); }}
 
 .stButton > button, .stDownloadButton > button, .stFormSubmitButton > button {{
