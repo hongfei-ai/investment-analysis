@@ -154,11 +154,13 @@ THE FOUR DILIGENCE AGENTS AND WHAT THEY DO:
   technical breakthrough, Agent 4 also assesses technical feasibility and
   category-creation dynamics.
 
-- Agent 5 — Reference Intelligence: NOT standard reference-call prep. Agent
-  5 hunts for negative signal the founder wouldn't volunteer — employee
-  retention analysis, absent-reference detection, Glassdoor/Blind/Reddit
-  mining, litigation checks, and APAC-adapted indirect elicitation for
-  reference calls.
+- Agent 5 — Customer & Traction Intelligence: Assesses commercial traction
+  strictly from the materials already provided (deck, data room, call notes,
+  Agent 1 research), distinguishing founder-stated metrics from evidenced
+  ones and explicitly flagging silences. Also proposes prioritized archetypes
+  of external voices the team should speak to next — customers, lapsed
+  prospects, ex-employees, channel partners, domain experts — and excludes
+  anyone already named in the record.
 
 - Agent 6 — Thesis Check: Pressure-tests whether the deal genuinely fits
   January Capital's thesis or is being retrofitted. Also runs a bias check
@@ -182,8 +184,7 @@ What a strong diligence question looks like:
   Question: "Was Grant the strategic driver or execution lieutenant at
   Optiver?"
   Hypothesis: "Grant was the strategic thinker, not just an executor."
-  Routed to: Agent 3 (founder diligence), Agent 5 (via reference calls to
-  former Optiver colleagues)
+  Routed to: Agent 3 (founder diligence)
   Priority: P1
   Resolution impact: "If execution lieutenant, the team is incomplete and
   diligence must assess whether a senior technical operator can be added
@@ -356,6 +357,6 @@ uncertainty and must be resolved first."
 
 - Agent 3 (Founder Diligence): [weight + rationale]
 - Agent 4 (Market & Technical Diligence): [weight + rationale]
-- Agent 5 (Reference Intelligence): [weight + rationale]
+- Agent 5 (Customer & Traction Intelligence): [weight + rationale]
 - Agent 6 (Thesis Check): [weight + rationale]
 """
