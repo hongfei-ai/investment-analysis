@@ -23,6 +23,9 @@ LIGHT = {
     "accent":      "#003DA5",   # primary action (January blue)
     "accent_hover": "#002B7A",
     "on_accent":   "#FFFFFF",
+    "btn_bg":      "#FFFFFF",
+    "btn_border":  "#C9C4B5",
+    "btn_fg":      "#1A1A1A",
     "hc":          "#1F6B4A",
     "mc":          "#A57A08",
     "lc":          "#A8321C",
@@ -43,16 +46,19 @@ DARK = {
     "text":        "#e6edf3",
     "text_muted":  "#8b949e",
     "text_dim":    "#484f58",
-    "accent":      "#5FAE92",
-    "accent_hover": "#4E9C80",
-    "on_accent":   "#0d1117",
+    "accent":      "#003DA5",   # stays consistent with light mode for brand
+    "accent_hover": "#1A52B8",
+    "on_accent":   "#FFFFFF",
+    "btn_bg":      "#000000",   # high contrast secondary button
+    "btn_border":  "#FFFFFF",
+    "btn_fg":      "#FFFFFF",
     "hc":          "#3fb950",
     "mc":          "#d29922",
     "lc":          "#f85149",
     "gap":         "#a371f7",
     "src":         "#58a6ff",
-    "exec_bg":     "rgba(95,174,146,0.06)",
-    "exec_border": "rgba(95,174,146,0.20)",
+    "exec_bg":     "rgba(0,61,165,0.10)",
+    "exec_border": "rgba(0,61,165,0.30)",
     "body_text":   "#c9d1d9",
     "section_open_bg": "rgba(255,255,255,0.02)",
 }
@@ -102,6 +108,9 @@ def _build_css(c: dict) -> str:
   --accent: {c['accent']};
   --accent-hover: {c['accent_hover']};
   --on-accent: {c['on_accent']};
+  --btn-bg: {c['btn_bg']};
+  --btn-border: {c['btn_border']};
+  --btn-fg: {c['btn_fg']};
   --hc: {c['hc']};
   --mc: {c['mc']};
   --lc: {c['lc']};
@@ -129,33 +138,43 @@ p, li, span, label, div {{ color: var(--text); }}
 
 .stButton > button, .stDownloadButton > button, .stFormSubmitButton > button {{
   border-radius: 6px;
-  border: 1px solid var(--border);
-  background: var(--surface);
-  color: var(--text);
+  border: 1px solid var(--btn-border) !important;
+  background: var(--btn-bg) !important;
+  color: var(--btn-fg) !important;
   font-weight: 600;
   transition: background 0.12s, border-color 0.12s, transform 0.05s;
 }}
+/* Force all descendants of secondary buttons to inherit the button foreground
+   (Streamlit wraps labels in divs that would otherwise pick up `--text`). */
+.stButton > button *, .stDownloadButton > button *, .stFormSubmitButton > button * {{
+  color: var(--btn-fg) !important;
+}}
 .stButton > button:hover, .stDownloadButton > button:hover, .stFormSubmitButton > button:hover {{
-  border-color: var(--accent);
-  background: var(--surface-alt);
-  color: var(--text);
+  border-color: var(--accent) !important;
+  background: var(--surface-alt) !important;
+  color: var(--btn-fg) !important;
 }}
 .stButton > button:active {{ transform: translateY(1px); }}
+
+/* Primary: January blue in both themes, always white text. */
 .stButton > button[kind="primary"], .stFormSubmitButton > button[kind="primary"] {{
-  background: var(--accent);
-  color: var(--on-accent);
-  border-color: var(--accent);
+  background: var(--accent) !important;
+  color: var(--on-accent) !important;
+  border-color: var(--accent) !important;
+}}
+.stButton > button[kind="primary"] *, .stFormSubmitButton > button[kind="primary"] * {{
+  color: var(--on-accent) !important;
 }}
 .stButton > button[kind="primary"]:hover, .stFormSubmitButton > button[kind="primary"]:hover {{
-  background: var(--accent-hover);
-  border-color: var(--accent-hover);
-  color: var(--on-accent);
+  background: var(--accent-hover) !important;
+  border-color: var(--accent-hover) !important;
+  color: var(--on-accent) !important;
 }}
 .stButton > button:disabled {{
   opacity: 0.45;
-  background: var(--border-soft);
-  color: var(--text-dim);
-  border-color: var(--border-soft);
+  background: var(--border-soft) !important;
+  color: var(--text-dim) !important;
+  border-color: var(--border-soft) !important;
 }}
 
 .stTextInput input, .stTextArea textarea, .stNumberInput input, .stDateInput input {{
@@ -217,6 +236,33 @@ div[role="dialog"] .stTextInput label {{
   background: var(--surface) !important;
   border-color: var(--border) !important;
   border-radius: 6px !important;
+  color: var(--text) !important;
+}}
+.stSelectbox div[data-baseweb="select"] * {{
+  color: var(--text) !important;
+}}
+
+/* Selectbox dropdown popup (rendered in a separate portal at <body> level). */
+div[data-baseweb="popover"], div[data-baseweb="menu"] {{
+  background: var(--surface) !important;
+  color: var(--text) !important;
+  border: 1px solid var(--border) !important;
+}}
+div[data-baseweb="popover"] ul, div[data-baseweb="menu"] ul {{
+  background: var(--surface) !important;
+}}
+div[data-baseweb="popover"] li, div[data-baseweb="menu"] li {{
+  background: var(--surface) !important;
+  color: var(--text) !important;
+}}
+div[data-baseweb="popover"] li *, div[data-baseweb="menu"] li * {{
+  color: var(--text) !important;
+}}
+div[data-baseweb="popover"] li[aria-selected="true"],
+div[data-baseweb="menu"] li[aria-selected="true"],
+div[data-baseweb="popover"] li:hover,
+div[data-baseweb="menu"] li:hover {{
+  background: var(--surface-alt) !important;
 }}
 
 [data-testid="stFileUploader"] section {{

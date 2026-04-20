@@ -129,7 +129,7 @@ def _render_filter_bar():
     with c3:
         sp1, sp2 = st.columns([0.55, 0.45])
         with sp2:
-            if st.button("\u2795  New deal", use_container_width=True, type="primary"):
+            if st.button("New deal", use_container_width=True, type="primary"):
                 _start_new_deal_dialog()
 
     return {
@@ -250,7 +250,7 @@ def _render_row(s, editable: bool):
 
 def _render_table(summaries):
     if not summaries:
-        st.info("No deals match the current filters. Start one with **+ New deal**.")
+        st.info("No deals match the current filters. Start one with **New deal**.")
         return
 
     _render_table_header()
