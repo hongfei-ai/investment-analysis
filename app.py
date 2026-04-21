@@ -19,9 +19,19 @@ import streamlit as st
 
 # Secrets → env must run BEFORE importing shared.py so the Anthropic key is
 # visible at module load. Silently tolerate a missing secrets file in dev.
+_INTEGRATION_SECRETS = (
+    "ANTHROPIC_API_KEY",
+    "NOTION_TOKEN",
+    "NOTION_DEALS_DB_ID",
+    "NOTION_OUTPUTS_DB_ID",
+    "NOTION_BOT_USER_EMAIL",
+    "NOTION_ENABLED",
+    "SLACK_WEBHOOK_URL",
+)
 try:
-    if "ANTHROPIC_API_KEY" in st.secrets:
-        os.environ["ANTHROPIC_API_KEY"] = st.secrets["ANTHROPIC_API_KEY"]
+    for _k in _INTEGRATION_SECRETS:
+        if _k in st.secrets:
+            os.environ[_k] = str(st.secrets[_k])
 except Exception:
     pass
 
@@ -67,6 +77,15 @@ for _key, _default in (
     ("batch_total", 0),
 ):
     st.session_state.setdefault(_key, _default)
+
+# Start the Notion poller in a daemon thread. No-op unless NOTION_ENABLED=true.
+# Dies when Streamlit Cloud sleeps the app; resumes on the next visit.
+try:
+    from integrations.poller import start_background_loop
+    start_background_loop()
+except Exception:
+    import logging
+    logging.getLogger(__name__).exception("Notion poller failed to start")
 
 pg = st.navigation(
     [

@@ -181,6 +181,7 @@ January Capital's active thesis themes: Agent Control Plane, Natively Fused Mult
 def agent1_user(deal: dict) -> str:
     inputs = deal["inputs"]
     deck_text = deal.get("_deck_text", "")
+    deck_section = f"Pitch Deck Content:\n{deck_text}" if deck_text else "No pitch deck provided."
     return f"""
 Prepare a Pre-Call Research Brief for the following founder:
 
@@ -192,7 +193,7 @@ Intro Source: {inputs.get('intro_source', 'Unknown')}
 Intro Context: {inputs.get('intro_context', '')}
 Initial Notes: {inputs.get('initial_notes', '')}
 
-{"Pitch Deck Content:\\n" + deck_text if deck_text else "No pitch deck provided."}
+{deck_section}
 
 Produce the full Pre-Call Research Brief following this structure exactly.
 
